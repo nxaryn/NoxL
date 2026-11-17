@@ -1330,6 +1330,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "noxl-lockscreen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "noxl-config",
+ "noxl-ipc",
+ "noxl-render",
+ "thiserror 1.0.69",
+ "tracing",
+ "tracing-subscriber",
+ "wayland-client",
+ "wayland-protocols-wlr",
+]
+
+[[package]]
 name = "noxl-notifications"
 version = "0.1.0"
 dependencies = [

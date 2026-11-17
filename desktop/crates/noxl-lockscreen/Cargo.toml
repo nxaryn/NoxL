@@ -1,0 +1,26 @@
+[package]
+name = "noxl-lockscreen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NoxL lock screen: OBSIDIAN-styled session lock with PAM authentication"
+
+[[bin]]
+name = "noxl-lockscreen"
+path = "src/main.rs"
+
+[dependencies]
+noxl-config.workspace = true
+noxl-ipc.workspace = true
+noxl-render.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+thiserror.workspace = true
+
+# Wayland client for layer-shell
+wayland-client = "0.31"
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }

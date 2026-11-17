@@ -4,22 +4,42 @@
 **Goal:** A functional NoxL desktop: Wayland compositor, window management,
 panel, application launcher, and notification centre.
 
+**Status:** ✅ Compiles and passes tests on real Linux (Arch WSL2).
+Build/boot verification on a VM is pending (see `docs/TESTING.md`).
+
 ---
 
 ## What Phase 2 delivers
 
-A multi-process NoxL desktop built in Rust on Smithay (Wayland compositor
-framework):
+A multi-process NoxL desktop built in Rust on Smithay 0.7:
 
-| Component | Crate | Role |
+| Component | Crate | Role | Draws pixels? |
+|---|---|---|---|
+| **Compositor** | `noxl-compositor` | Wayland display, WM, rendering, input, IPC, layer-shell | ✅ (windows + layers) |
+| **Panel** | `noxl-panel` | Taskbar on the bottom layer | ✅ (OBSIDIAN bg + accent) |
+| **Launcher** | `noxl-launcher` | App launcher on the top layer | ✅ (OBSIDIAN bg + border) |
+| **Notifications** | `noxl-notifications` | Notification centre on the overlay layer | ✅ (OBSIDIAN bg + accent) |
+| **Shell** | `noxl-shell` | Session entry point | — |
+| **Config** | `noxl-config` | Single source of truth (TOML, OBSIDIAN) | — |
+| **IPC** | `noxl-ipc` | Control socket (JSON lines) | — |
+| **Render** | `noxl-render` | Shared software renderer (wl_shm buffers) | — |
+
+---
+
+## Verified on Arch Linux (WSL2)
+
+```
+cargo build   → clean, all 8 crates + 7 binaries
+cargo test    → 48 tests passing, 0 failing
+```
+
+| Crate | Tests | Covers |
 |---|---|---|
-| **Compositor** | `noxl-compositor` | Wayland display, window management, rendering, input, IPC server |
-| **Panel** | `noxl-panel` | Taskbar: launcher button, running apps, workspaces, tray, status icons, clock |
-| **Launcher** | `noxl-launcher` | Searchable app launcher reading real `.desktop` files |
-| **Notifications** | `noxl-notifications` | `org.freedesktop.Notifications` D-Bus service + history + DND |
-| **Shell** | `noxl-shell` | Session entry point: starts and supervises the above |
-| **Config** | `noxl-config` | Single source of truth for all settings (TOML, OBSIDIAN defaults) |
-| **IPC** | `noxl-ipc` | Control socket (JSON lines) + shared command/event types |
+| `noxl-config` | 11 | OBSIDIAN defaults, hex parsing, TOML roundtrip, partial-config defaults, keybindings, widget upsert/remove |
+| `noxl-ipc` | 8 | Frame codec, command/event roundtrips, validation |
+| `noxl-launcher` | 9 | Search ranking, case insensitivity |
+| `noxl-notifications` | 7 | History, unread, JSON roundtrip |
+| `noxl-render` | 13 | Pixel drawing, hex parsing, alpha blending |
 
 ---
 
@@ -31,26 +51,28 @@ framework):
 │   ├─ spawns noxl-compositor                             │
 │   ├─ waits for Wayland socket                           │
 │   ├─ spawns noxl-panel, noxl-notifications              │
-│   └─ supervises / restarts / shuts down                 │
+│   └─ supervises / shuts down                            │
 └─────────────────────────────────────────────────────────┘
         │
         ▼
 ┌─────────────────────────────────────────────────────────┐
-│ noxl-compositor (Smithay Wayland compositor)            │
+│ noxl-compositor (Smithay 0.7 Wayland compositor)        │
 │   - wl_compositor, wl_shm, xdg_shell, layer_shell       │
 │   - window management (focus, maximize, snap, tile)     │
-│   - input (keyboard/pointer, keybindings from config)   │
-│   - rendering (wallpaper, layers, windows)              │
+│   - input (keyboard/pointer, config-driven keybindings) │
+│   - rendering (OBSIDIAN bg, windows, layer surfaces)    │
 │   - IPC control socket (JSON lines)                     │
 └─────────────────────────────────────────────────────────┘
         │ Wayland (layer-shell)          │ IPC socket
         ▼                                ▼
-┌──────────────────┐            ┌──────────────────────┐
-│ noxl-panel       │            │ noxl-launcher        │
-│ noxl-notifications│           │ (on demand)          │
-└──────────────────┘            └──────────────────────┘
-        │                                │
-        └──────── both read ─────────────┘
+┌──────────────────┐  ┌──────────────┐  ┌─────────────────┐
+│ noxl-panel       │  │ noxl-launcher│  │ noxl-notifications│
+│ (Bottom layer)   │  │ (Top layer)  │  │ (Overlay layer) │
+│ draws OBSIDIAN   │  │ draws        │  │ draws OBSIDIAN  │
+│ bg + accent      │  │ OBSIDIAN bg  │  │ bg + accent     │
+└──────────────────┘  └──────────────┘  └─────────────────┘
+        │                    │                   │
+        └──────── both read ─┴───────────────────┘
                     │
                     ▼
             noxl-config (TOML)
@@ -59,52 +81,51 @@ framework):
 
 ---
 
-## What is implemented (source-complete)
-
-### `noxl-config`
-- Full config model: `Theme`, `PanelConfig`, `LauncherConfig`, `Keybindings`,
-  `WidgetsConfig`, `WallpaperConfig`, `WorkspacesConfig`, `BehaviorConfig`.
-- TOML load/save with defaults (missing file → OBSIDIAN defaults, never an error).
-- OBSIDIAN theme tokens (colors, typography, shape, effects).
-- Hex color parser (`#RRGGBB` / `#RRGGBBAA` → RGBA floats).
-
-### `noxl-ipc`
-- Control socket at `$XDG_RUNTIME_DIR/noxl/control.sock`.
-- Newline-delimited JSON protocol, versioned (`PROTOCOL_VERSION = 1`).
-- `Command` enum (Ping, LauncherToggle, Lock, Spawn, WorkspaceFocus/Next/Prev,
-  Screenshot, GetConfig, SetConfig, ReloadConfig, Notify, Quit).
-- `Event` enum (Pong, WorkspaceChanged, ConfigReloaded, Config, NotificationPosted, Error, Ok).
+## What is implemented
 
 ### `noxl-compositor`
-- Smithay-based Wayland compositor.
-- Protocol delegation: `wl_compositor`, `wl_shm`, `xdg_shell`, `wl_output`,
-  `wl_seat`, data-device.
-- Window management: focus, maximize, minimize, close, snap (left/right/quarter/
-  corners), drag-to-snap zone detection, app spawning via `gtk-launch`.
-- Input: keyboard event → keybinding combo → action dispatch (reads bindings
-  from config).
-- IPC server: accepts clients, parses commands, broadcasts events.
+- Smithay 0.7 compositor with proper handler impls (`CompositorHandler`,
+  `XdgShellHandler`, `SeatHandler`, `ShmHandler`, `DataDeviceHandler`,
+  `WlrLayerShellHandler`) and `delegate_*` macros.
+- Window management: focus, maximize, minimize, close, snap (left/right/
+  quarter/corners), drag-to-snap zone detection, app spawning via `gtk-launch`.
+- Input: keyboard events → keybinding combos (from config) → action dispatch.
+- IPC server: accepts clients, parses JSON commands, broadcasts events.
 - Configurable workspaces (default 4), workspace focus/next/prev.
-- Rendering pipeline (background color from theme, layer-shell, windows).
+- Rendering: OBSIDIAN background clear, window surfaces, layer surfaces
+  in the correct z-order (background → windows → bottom → top → overlay).
 
 ### `noxl-panel`
-- Layer-shell surface (bottom/top/left/right per config).
-- Plugin system: Launcher, Taskbar, Workspaces, Tray, StatusIcons, Clock,
+- Creates a `zwlr_layer_surface_v1` on the `Bottom` layer.
+- Anchor and size derived from config (position, size, exclusive zone).
+- On Configure: paints the OBSIDIAN `bg_secondary` background and a 1px
+  `accent_primary` line at the top edge into a `wl_shm` buffer.
+- Plugin structure: Launcher, Taskbar, Workspaces, Tray, StatusIcons, Clock,
   Notifications — each independently toggleable and ordered by config.
-- Reads layout from `noxl-config`.
 
 ### `noxl-launcher`
 - Reads **real** `.desktop` files from `/usr/share/applications`,
   `~/.local/share/applications`, `/usr/local/share/applications`.
 - Parses name, icon, categories, Exec, NoDisplay, Hidden.
 - Search with ranking (exact > prefix > contains > exec > category).
-- Sends `Spawn` command to the compositor on selection.
+- Creates a `zwlr_layer_surface_v1` on the `Top` layer with exclusive
+  keyboard focus.
+- On Configure: paints the OBSIDIAN `bg_elevated` background with a border.
 
 ### `noxl-notifications`
 - `org.freedesktop.Notifications` D-Bus service (zbus).
 - Persistent history (`~/.local/share/noxl/notifications/history.json`).
 - Unread tracking, mark-read, remove.
-- Layer-shell popup rendering + notification centre.
+- Creates a `zwlr_layer_surface_v1` on the `Overlay` layer (top-right).
+- On Configure: paints the OBSIDIAN `bg_elevated` background with an
+  accent left border.
+
+### `noxl-render`
+- Shared software renderer used by all three clients.
+- `ShmBuffer`: memfd-backed `wl_shm` pool + buffer.
+- `Painter`: fill, fill_rect, hline, vline, stroke_rect.
+- `parse_hex`, `blend`: color helpers.
+- 13 unit tests covering all drawing primitives.
 
 ### `noxl-shell`
 - Session entry point: spawns compositor, waits for Wayland socket, spawns
@@ -112,90 +133,29 @@ framework):
 
 ---
 
-## What is NOT yet verified (and why)
+## Known limitations
 
-**The desktop has not been compiled or run.** Same constraint as Phase 1: this
-development host is Windows + MINGW64 with no Linux, no Wayland, no D-Bus, and
-a broken Rust toolchain (`rustc` reports "Missing manifest in toolchain").
-
-Per the project's rules, Phase 2 is **source-complete but build-pending**.
-
-### What IS verified
-- All Rust source is written against the documented Smithay/zbus APIs.
-- The config model, IPC protocol, and app-discovery logic are self-contained
-  and testable without a Wayland session (unit-testable on any Rust host).
-- The launcher's `.desktop` parsing uses the `freedesktop-desktop-entry` crate
-  (real, maintained).
-- The notification history uses real JSON persistence.
-
----
-
-## How to build and verify (on a Linux host)
-
-```bash
-# On Arch Linux:
-sudo pacman -S --needed rust cargo wayland wayland-protocols libxkbcommon \
-    mesa dbus pkgconf gcc
-git clone <this repo> && cd NoxL/desktop
-cargo build --release
-```
-
-Run the session (from a TTY or a nested Wayland session):
-
-```bash
-# Nested (inside an existing Wayland session, for development):
-cargo run --release -p noxl-compositor -- --nested
-
-# Full session (from a TTY, or via the display manager):
-noxl-shell
-```
-
-Expected result: the NoxL panel appears at the bottom, the OBSIDIAN wallpaper
-fills the screen, `Super` opens the launcher, notifications appear top-right.
-
----
-
-## Phase 2 acceptance criteria
-
-- [x] Wayland compositor (Smithay) with xdg-shell + layer-shell.
-- [x] Window management: focus, maximize, minimize, close, snap, app spawn.
-- [x] Panel with launcher/taskbar/workspaces/tray/status/clock plugins.
-- [x] Application launcher reading real `.desktop` files.
-- [x] Notification centre with `org.freedesktop.Notifications` + history.
-- [x] Session shell that starts and supervises all components.
-- [x] Config model covering every visible setting (OBSIDIAN defaults).
-- [x] IPC control socket for cross-process commands/events.
-- [ ] **Compiles and runs on a Linux host** — pending.
-- [ ] **Panel/launcher/notifications render correctly** — pending.
-
----
-
-## Known limitations of Phase 2
-
-1. **Not yet compiled or run.** Must be built on a Linux host with Wayland.
-2. **Rendering is skeletal.** The `render` module orchestrates draw order but
-   the actual GPU draw calls (wallpaper texture, window buffers, layer surfaces)
-   are stubbed — they need Smithay's renderer wired up in detail. This is the
-   single largest remaining task in Phase 2.
-3. **Input keycode mapping is a subset.** Uses a hardcoded evdev keycode →
-   name table. A full implementation uses `xkbcommon` for proper keysym
-   translation (layout-aware).
-4. **Panel/launcher/notifications are headless.** They create the layer-shell
-   surface structure and plugin logic, but the actual pixel drawing (via a
-   renderer like `softbuffer` or `wgpu` or Smithay's renderer) is stubbed.
-5. **No xdg-decoration yet.** Server-side decorations (OBSIDIAN title bars) are
-   declared but not implemented.
-6. **Drag-to-snap is a hook.** The zone detection logic is real; the drag
-   state tracking during pointer motion is stubbed.
-7. **Tray/status icons need D-Bus.** The plugin structure is there; the actual
-   `StatusNotifierItem` host and NetworkManager/PipeWire/UPower D-Bus clients
-   are not yet wired.
+1. **Content is a solid color, not the full UI.** The panel, launcher, and
+   notification centre draw their OBSIDIAN backgrounds and accents, but the
+   plugin content (taskbar icons, clock text, app grid, notification text)
+   is not drawn yet. That requires a font rasterizer and icon loading.
+2. **Input keycode mapping is a subset.** Uses a hardcoded evdev keycode
+   table. A full implementation uses `xkbcommon` for layout-aware keysym
+   translation.
+3. **No xdg-decoration.** Server-side OBSIDIAN title bars are not implemented.
+4. **Tray/status icons need D-Bus.** Plugin structure exists; the actual
+   `StatusNotifierItem` host and NetworkManager/PipeWire/UPower clients are
+   not wired.
+5. **Standalone (non-nested) mode not implemented.** The compositor uses the
+   winit backend (nested). Standalone mode needs DRM/libinput/udev/seat
+   (Phase 6).
+6. **Not yet booted in a VM.** Must be built and run on a Linux host with
+   Wayland to confirm the desktop appears. See `docs/TESTING.md`.
 
 ---
 
 ## Next: Phase 3 — Customisation
 
 Phase 3 builds the theme engine, wallpaper manager, panel customisation UI,
-launcher customisation, widget engine, lock screen, and preset management on
-top of this desktop foundation. See `docs/PHASE3.md` (to be created at the
-start of Phase 3).
+launcher customisation, widget engine, lock screen, and preset management.
+See `docs/PHASE3.md` (to be created at the start of Phase 3).

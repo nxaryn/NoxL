@@ -11,6 +11,7 @@ members = [
     "crates/noxl-settings",
     "crates/noxl-widgets",
     "crates/noxl-render",
+    "crates/noxl-lockscreen",
 ]
 
 [workspace.package]
