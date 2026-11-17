@@ -156,12 +156,13 @@ It runs:
 
 These are honest limitations of the current implementation:
 
-1. **Panel creates a layer-shell surface but does not draw pixels yet.** The
-   panel connects to the compositor, creates a `zwlr_layer_surface_v1` on the
-   bottom layer, and acks configures. The plugin render methods are structured
-   but the actual pixel drawing (via shared-memory buffers) is the next task.
-2. **Launcher and notifications do not create layer-shell surfaces yet.** They
-   have the structure and logic; the client-side surface creation is pending.
+1. **Panel and launcher draw pixels; notifications do not yet.** Both the panel
+   and launcher create `wl_shm` buffers, paint the OBSIDIAN background and
+   borders, and attach them. Notifications have the structure and history but
+   do not yet create a layer surface or draw.
+2. **Panel/launcher content is a solid color, not the full UI.** The plugins
+   (taskbar, clock, tray) and the app grid are structured but their icons/text
+   are not drawn into the buffers yet.
 3. **Input keycode mapping is a subset.** Uses a hardcoded evdev keycode table.
    A full implementation uses `xkbcommon` for layout-aware keysym translation.
 4. **No xdg-decoration.** Server-side OBSIDIAN title bars are not implemented.

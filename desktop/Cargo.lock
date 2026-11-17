@@ -1321,9 +1321,12 @@ dependencies = [
  "freedesktop-desktop-entry",
  "noxl-config",
  "noxl-ipc",
+ "noxl-render",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "wayland-client",
+ "wayland-protocols-wlr",
 ]
 
 [[package]]
@@ -1356,6 +1359,15 @@ dependencies = [
  "tracing-subscriber",
  "wayland-client",
  "wayland-protocols-wlr",
+]
+
+[[package]]
+name = "noxl-render"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "tracing",
+ "wayland-client",
 ]
 
 [[package]]

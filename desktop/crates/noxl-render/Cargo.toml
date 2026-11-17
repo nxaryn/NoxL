@@ -1,0 +1,12 @@
+[package]
+name = "noxl-render"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NoxL shared software renderer: pixel drawing into wl_shm buffers"
+
+[dependencies]
+anyhow.workspace = true
+tracing.workspace = true
+wayland-client = "0.31"

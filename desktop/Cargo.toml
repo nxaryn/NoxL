@@ -10,6 +10,7 @@ members = [
     "crates/noxl-shell",
     "crates/noxl-settings",
     "crates/noxl-widgets",
+    "crates/noxl-render",
 ]
 
 [workspace.package]
@@ -54,6 +55,7 @@ clap = { version = "4", features = ["derive", "env"] }
 # Internal crates
 noxl-config = { path = "crates/noxl-config" }
 noxl-ipc = { path = "crates/noxl-ipc" }
+noxl-render = { path = "crates/noxl-render" }
 
 [profile.release]
 opt-level = 3
