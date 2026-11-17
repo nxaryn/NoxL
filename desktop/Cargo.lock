@@ -1303,6 +1303,7 @@ name = "noxl-ipc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "libc",
  "noxl-config",
  "serde",
  "serde_json",

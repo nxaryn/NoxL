@@ -21,6 +21,17 @@ pub const PROTOCOL_VERSION: u32 = 1;
 pub fn control_socket_path() -> std::path::PathBuf {
     let runtime = std::env::var_os("XDG_RUNTIME_DIR")
         .map(std::path::PathBuf::from)
+        .or_else(|| {
+            // Fallback for environments where XDG_RUNTIME_DIR is not set
+            // (e.g. running as root in a live environment).
+            let uid = unsafe { libc::getuid() };
+            let path = std::path::PathBuf::from(format!("/run/user/{}", uid));
+            if path.exists() {
+                Some(path)
+            } else {
+                Some(std::path::PathBuf::from("/tmp"))
+            }
+        })
         .unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
     runtime.join("noxl").join("control.sock")
 }
