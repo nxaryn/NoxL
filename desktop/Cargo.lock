@@ -1338,11 +1338,14 @@ dependencies = [
  "directories",
  "noxl-config",
  "noxl-ipc",
+ "noxl-render",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "wayland-client",
+ "wayland-protocols-wlr",
  "zbus",
 ]
 

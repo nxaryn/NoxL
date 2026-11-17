@@ -156,13 +156,12 @@ It runs:
 
 These are honest limitations of the current implementation:
 
-1. **Panel and launcher draw pixels; notifications do not yet.** Both the panel
-   and launcher create `wl_shm` buffers, paint the OBSIDIAN background and
-   borders, and attach them. Notifications have the structure and history but
-   do not yet create a layer surface or draw.
-2. **Panel/launcher content is a solid color, not the full UI.** The plugins
-   (taskbar, clock, tray) and the app grid are structured but their icons/text
-   are not drawn into the buffers yet.
+1. **All three desktop components draw pixels.** The panel, launcher, and
+   notification centre each create a `wl_shm` buffer, paint the OBSIDIAN
+   background and accents, and attach it to a layer surface.
+2. **Content is a solid color, not the full UI.** The plugins (taskbar, clock,
+   tray), the app grid, and notification text are structured but their
+   icons/text are not drawn into the buffers yet.
 3. **Input keycode mapping is a subset.** Uses a hardcoded evdev keycode table.
    A full implementation uses `xkbcommon` for layout-aware keysym translation.
 4. **No xdg-decoration.** Server-side OBSIDIAN title bars are not implemented.

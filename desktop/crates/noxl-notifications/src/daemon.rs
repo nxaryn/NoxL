@@ -18,20 +18,16 @@ pub async fn run(config: noxl_config::NoxlConfig) -> anyhow::Result<()> {
     // and emits org.freedesktop.Notifications.NotificationClosed and
     //  ActionInvoked signals.)
 
-    let connection = zbus::Connection::session()
+    let _connection = zbus::Connection::session()
         .await
         .context("failed to connect to session bus")?;
 
     tracing::info!("connected to session bus");
 
-    // Event loop: serve D-Bus, render notifications, handle IPC.
-    let mut history = history::History::load()?;
-    loop {
-        // Process incoming D-Bus Notify calls.
-        // Render visible notifications as layer-shell surfaces.
-        render::render(&config, &history)?;
-        // Persist history periodically.
-        let _ = history.save();
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-    }
+    // Load history.
+    let history = history::History::load()?;
+
+    // Run the notification centre (creates the layer surface and event loop).
+    render::run(config, history)?;
+    Ok(())
 }
