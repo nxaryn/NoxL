@@ -65,6 +65,26 @@ fn main() -> anyhow::Result<()> {
     let mut compositor = state::Noxl::new(&display, config, opts.no_ipc, opts.nested)
         .context("failed to initialize compositor state")?;
 
+    // Create an output so layer-shell surfaces have a target.
+    // In nested mode this maps to the host window; in standalone mode the
+    // DRM backend would create one per monitor.
+    let output = smithay::output::Output::new(
+        "NoxL".to_string(),
+        smithay::output::PhysicalProperties {
+            make: "NoxL".into(),
+            model: "Virtual Output".into(),
+            size: smithay::utils::Size::from((0, 0)),
+            subpixel: smithay::output::Subpixel::Unknown,
+        },
+    );
+    compositor.outputs.push(state::OutputState {
+        output: output.clone(),
+        size: smithay::utils::Size::from((1920, 1080)),
+        scale: 1,
+        position: smithay::utils::Point::from((0, 0)),
+    });
+    compositor.common_output_connect(&output);
+
     // Add a keyboard.
     let keyboard = compositor
         .seat

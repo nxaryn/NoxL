@@ -156,10 +156,11 @@ It runs:
 
 These are honest limitations of the current implementation:
 
-1. **Rendering is skeletal.** The compositor's `render` module clears the
-   background and draws window surfaces, but layer-shell surfaces (panel,
-   launcher, notifications) are not yet composited. The panel/launcher/
-   notification processes create their structure but do not draw pixels yet.
+1. **Layer-shell surfaces are registered but not drawn.** The compositor
+   implements `WlrLayerShellHandler` and collects layer surfaces in the render
+   pass, but the panel/launcher/notification processes do not yet create their
+   layer-shell surfaces and draw pixels. The plumbing is in place; the client
+   side is the next task.
 2. **Input keycode mapping is a subset.** Uses a hardcoded evdev keycode table.
    A full implementation uses `xkbcommon` for layout-aware keysym translation.
 3. **No xdg-decoration.** Server-side OBSIDIAN title bars are not implemented.

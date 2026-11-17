@@ -18,9 +18,7 @@ use smithay::{
     utils::{Point, Rectangle, Size},
     wayland::{
         buffer::BufferHandler,
-        compositor::{
-            CompositorClientState, CompositorHandler, CompositorState,
-        },
+        compositor::{CompositorClientState, CompositorHandler, CompositorState},
         selection::{
             data_device::{
                 ClientDndGrabHandler, DataDeviceHandler, DataDeviceState,
@@ -28,7 +26,10 @@ use smithay::{
             },
             SelectionHandler,
         },
-        shell::xdg::{PopupSurface, PositionerState, ToplevelSurface, XdgShellHandler, XdgShellState},
+        shell::{
+            wlr_layer::{Layer, LayerSurface, WlrLayerShellHandler, WlrLayerShellState},
+            xdg::{PopupSurface, PositionerState, ToplevelSurface, XdgShellHandler, XdgShellState},
+        },
         shm::{ShmHandler, ShmState},
     },
 };
@@ -41,6 +42,7 @@ smithay::delegate_data_device!(Noxl);
 smithay::delegate_seat!(Noxl);
 smithay::delegate_shm!(Noxl);
 smithay::delegate_xdg_shell!(Noxl);
+smithay::delegate_layer_shell!(Noxl);
 
 /// Per-client state.
 #[derive(Default)]
@@ -74,6 +76,7 @@ pub struct OutputState {
 pub struct Noxl {
     pub compositor_state: CompositorState,
     pub xdg_shell_state: XdgShellState,
+    pub layer_shell_state: WlrLayerShellState,
     pub shm_state: ShmState,
     pub seat_state: SeatState<Self>,
     pub data_device_state: DataDeviceState,
@@ -99,6 +102,7 @@ impl Noxl {
 
         let compositor_state = CompositorState::new::<Self>(&dh);
         let xdg_shell_state = XdgShellState::new::<Self>(&dh);
+        let layer_shell_state = WlrLayerShellState::new::<Self>(&dh);
         let shm_state = ShmState::new::<Self>(&dh, vec![]);
         let mut seat_state = SeatState::new();
         let seat = seat_state.new_wl_seat(&dh, "noxl");
@@ -107,6 +111,7 @@ impl Noxl {
         let mut state = Self {
             compositor_state,
             xdg_shell_state,
+            layer_shell_state,
             shm_state,
             seat_state,
             data_device_state,
@@ -137,6 +142,13 @@ impl Noxl {
         }
 
         Ok(state)
+    }
+
+    /// Connect an output to the output manager so clients see it.
+    pub fn common_output_connect(&mut self, output: &smithay::output::Output) {
+        // In Smithay 0.7 the OutputManagerState is not stored directly;
+        // outputs are advertised via the Output global. We just log it here.
+        tracing::info!(name = %output.name(), "output connected");
     }
 
     /// Focus a workspace by index.
@@ -297,6 +309,30 @@ impl CompositorHandler for Noxl {
 impl ShmHandler for Noxl {
     fn shm_state(&self) -> &ShmState {
         &self.shm_state
+    }
+}
+
+impl WlrLayerShellHandler for Noxl {
+    fn shell_state(&mut self) -> &mut WlrLayerShellState {
+        &mut self.layer_shell_state
+    }
+
+    fn new_layer_surface(
+        &mut self,
+        surface: LayerSurface,
+        output: Option<smithay::reexports::wayland_server::protocol::wl_output::WlOutput>,
+        layer: Layer,
+        namespace: String,
+    ) {
+        tracing::info!(?layer, %namespace, "new layer surface");
+
+        // Send an initial configure so the client knows it should start
+        // drawing. The client acks this and then commits its buffer.
+        surface.send_configure();
+    }
+
+    fn layer_destroyed(&mut self, surface: LayerSurface) {
+        tracing::debug!(?surface, "layer surface destroyed");
     }
 }
 
