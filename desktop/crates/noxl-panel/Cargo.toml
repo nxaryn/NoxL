@@ -1,0 +1,26 @@
+[package]
+name = "noxl-panel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NoxL panel/taskbar: launcher button, taskbar, workspaces, tray, status icons, clock"
+
+[[bin]]
+name = "noxl-panel"
+path = "src/main.rs"
+
+[dependencies]
+noxl-config.workspace = true
+noxl-ipc.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+tokio.workspace = true
+
+# Wayland client for layer-shell
+wayland-client.workspace = true
+wayland-protocols.workspace = true
+wayland-backend.workspace = true

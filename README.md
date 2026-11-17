@@ -7,9 +7,10 @@ systemd, Wayland, PipeWire) and adds an original desktop environment, a complete
 customisation system, and a native application ecosystem under the **OBSIDIAN**
 design language.
 
-> **Status:** Phase 1 (Foundation) — source complete, build/verify pending on a
-> Linux host. See [docs/PHASE1.md](docs/PHASE1.md) for exactly what works, what
-> is unverified, and how to build and boot it.
+> **Status:** Phase 2 (Desktop) — source complete, build/verify pending on a
+> Linux host. See [docs/PHASE1.md](docs/PHASE1.md) and
+> [docs/PHASE2.md](docs/PHASE2.md) for exactly what works, what is unverified,
+> and how to build and boot it.
 
 ---
 
@@ -50,7 +51,15 @@ NoxL/
 │   ├── networking/      # NetworkManager config
 │   ├── security/        # PAM, polkit, firewall defaults
 │   └── hardware/        # firmware/driver guidance
-├── desktop/             # (Phase 2+) compositor, shell, panel, launcher, ...
+├── desktop/             # NoxL Desktop (Rust / Smithay Wayland compositor)
+│   ├── crates/
+│   │   ├── noxl-compositor/   # Wayland compositor, WM, input, IPC
+│   │   ├── noxl-panel/        # taskbar / panel
+│   │   ├── noxl-launcher/     # application launcher
+│   │   ├── noxl-notifications/# notification centre
+│   │   ├── noxl-shell/        # session entry point
+│   │   ├── noxl-config/       # shared config model (OBSIDIAN defaults)
+│   │   └── noxl-ipc/          # control socket protocol
 ├── applications/        # (Phase 4+) native apps
 ├── themes/              # OBSIDIAN theme tokens + definitions
 ├── installer/           # (Phase 5) graphical installer
@@ -74,6 +83,13 @@ git clone <this repo>
 cd NoxL
 sudo ./scripts/build-iso.sh
 # Result: build/noxl-*.iso
+```
+
+Build the NoxL desktop (on a Linux host with Rust + Wayland + D-Bus):
+
+```bash
+./scripts/build-desktop.sh
+# Binaries in desktop/target/release/
 ```
 
 Boot test:

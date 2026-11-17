@@ -1,0 +1,25 @@
+[package]
+name = "noxl-notifications"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NoxL notification centre: org.freedesktop.Notifications + history + DND"
+
+[[bin]]
+name = "noxl-notifications"
+path = "src/main.rs"
+
+[dependencies]
+noxl-config.workspace = true
+noxl-ipc.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+tokio.workspace = true
+zbus.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+directories.workspace = true

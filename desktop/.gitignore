@@ -1,0 +1,4 @@
+# NoxL Desktop — target directory
+/target
+**/*.rs.bk
+Cargo.lock.orig

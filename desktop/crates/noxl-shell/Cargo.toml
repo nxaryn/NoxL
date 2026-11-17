@@ -1,0 +1,22 @@
+[package]
+name = "noxl-shell"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NoxL shell: session entry point that launches the compositor and desktop components"
+
+[[bin]]
+name = "noxl-shell"
+path = "src/main.rs"
+
+[dependencies]
+noxl-config.workspace = true
+noxl-ipc.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+tokio.workspace = true
+directories.workspace = true

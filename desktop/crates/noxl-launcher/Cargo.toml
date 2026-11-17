@@ -1,0 +1,25 @@
+[package]
+name = "noxl-launcher"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NoxL application launcher: search, categories, pinned/recent apps, power controls"
+
+[[bin]]
+name = "noxl-launcher"
+path = "src/main.rs"
+
+[dependencies]
+noxl-config.workspace = true
+noxl-ipc.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+tokio.workspace = true
+
+# .desktop file parsing
+freedesktop-desktop-entry = "0.6"
+dirs = "5"

@@ -6,10 +6,8 @@ Wants=systemd-user-sessions.service
 
 [Service]
 Type=idle
-# The NoxL compositor (Phase 2). Until then, this starts a Wayland-capable
-# session via the default display server so the live image is usable.
-# Replace ExecStart with /usr/bin/noxl-compositor once Phase 2 lands.
-ExecStart=/usr/bin/gnome-session
+# Launch the NoxL shell, which starts the compositor and desktop components.
+ExecStart=/usr/bin/noxl-shell
 Restart=on-failure
 RestartSec=3
 
