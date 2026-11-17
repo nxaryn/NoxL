@@ -156,18 +156,19 @@ It runs:
 
 These are honest limitations of the current implementation:
 
-1. **Layer-shell surfaces are registered but not drawn.** The compositor
-   implements `WlrLayerShellHandler` and collects layer surfaces in the render
-   pass, but the panel/launcher/notification processes do not yet create their
-   layer-shell surfaces and draw pixels. The plumbing is in place; the client
-   side is the next task.
-2. **Input keycode mapping is a subset.** Uses a hardcoded evdev keycode table.
+1. **Panel creates a layer-shell surface but does not draw pixels yet.** The
+   panel connects to the compositor, creates a `zwlr_layer_surface_v1` on the
+   bottom layer, and acks configures. The plugin render methods are structured
+   but the actual pixel drawing (via shared-memory buffers) is the next task.
+2. **Launcher and notifications do not create layer-shell surfaces yet.** They
+   have the structure and logic; the client-side surface creation is pending.
+3. **Input keycode mapping is a subset.** Uses a hardcoded evdev keycode table.
    A full implementation uses `xkbcommon` for layout-aware keysym translation.
-3. **No xdg-decoration.** Server-side OBSIDIAN title bars are not implemented.
-4. **Tray/status icons need D-Bus.** Plugin structure exists; the actual
+4. **No xdg-decoration.** Server-side OBSIDIAN title bars are not implemented.
+5. **Tray/status icons need D-Bus.** Plugin structure exists; the actual
    `StatusNotifierItem` host and NetworkManager/PipeWire/UPower clients are
    not wired.
-5. **Standalone (non-nested) mode not implemented.** The compositor currently
+6. **Standalone (non-nested) mode not implemented.** The compositor currently
    uses the winit backend (nested). Standalone mode needs DRM/libinput/udev/
    seat (Phase 6).
 

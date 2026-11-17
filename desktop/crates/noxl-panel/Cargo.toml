@@ -21,6 +21,5 @@ clap.workspace = true
 tokio.workspace = true
 
 # Wayland client for layer-shell
-wayland-client.workspace = true
-wayland-protocols.workspace = true
-wayland-backend.workspace = true
+wayland-client = "0.31"
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }

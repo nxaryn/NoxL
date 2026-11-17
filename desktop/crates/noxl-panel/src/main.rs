@@ -42,7 +42,7 @@ fn main() -> anyhow::Result<()> {
         .context("failed to build tokio runtime")?;
 
     rt.block_on(async move {
-        panel::run(config).await?;
+        panel::run(config)?;
         Ok(())
     })
 }

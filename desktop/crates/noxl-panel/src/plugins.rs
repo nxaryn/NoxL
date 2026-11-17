@@ -18,6 +18,18 @@ pub struct PluginSet {
     pub plugins: Vec<Box<dyn Plugin>>,
 }
 
+impl PluginSet {
+    pub fn new() -> Self {
+        Self { plugins: Vec::new() }
+    }
+}
+
+impl Default for PluginSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Initialize the plugins enabled in the config.
 pub fn init(config: &noxl_config::NoxlConfig) -> anyhow::Result<PluginSet> {
     let mut plugins: Vec<Box<dyn Plugin>> = Vec::new();
