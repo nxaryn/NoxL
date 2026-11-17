@@ -1,149 +1,117 @@
-//! Global compositor state.
+//! NoxL Wayland compositor state.
 //!
-//! Holds the Smithay `State`, the list of outputs (monitors), workspaces,
-//! windows, and the registry of Wayland globals. This is the central data model
-//! the rest of the compositor operates on.
+//! Holds the Smithay `Display`, the seat, the xdg-shell state, and the
+//! NoxL-specific data (workspaces, outputs, config, IPC).
+//!
+//! The API matches Smithay 0.7 (see examples/minimal.rs).
 
-use std::collections::HashMap;
+use std::sync::Arc;
 
 use smithay::{
-    delegate_compositor, delegate_data_device, delegate_output, delegate_seat,
-    delegate_shm, delegate_xdg_shell,
-    desktop::{
-        layer_map, space::Space, Window, WindowSurfaceType,
-    },
+    desktop::Space,
     input::{Seat, SeatState},
-    output::{Output, PhysicalProperties, Subpixel},
-    reexports::{
-        calloop::EventLoop,
-        wayland_server::{
-            backend::{ClientData, ClientId, DisconnectedState},
-            protocol::wl_surface::WlSurface,
-            Display, DisplayHandle, GlobalDispatch,
-        },
+    reexports::wayland_server::{
+        backend::{ClientData, ClientId, DisconnectReason},
+        protocol::wl_surface::WlSurface,
+        Client, Display, DisplayHandle,
     },
-    utils::{IsAlive, Point, Rectangle, Size},
+    utils::{Point, Rectangle, Size},
     wayland::{
-        compositor::CompositorState,
-        data_device::DataDeviceState,
-        output::OutputManagerState,
-        shell::xdg::XdgShellState,
-        shm::ShmState,
+        buffer::BufferHandler,
+        compositor::{
+            CompositorClientState, CompositorHandler, CompositorState,
+        },
+        selection::{
+            data_device::{
+                ClientDndGrabHandler, DataDeviceHandler, DataDeviceState,
+                ServerDndGrabHandler,
+            },
+            SelectionHandler,
+        },
+        shell::xdg::{PopupSurface, PositionerState, ToplevelSurface, XdgShellHandler, XdgShellState},
+        shm::{ShmHandler, ShmState},
     },
 };
 
-use crate::{input, ipc, protocols, render, window};
+use crate::{ipc, window};
+
+// Delegate the Wayland protocol globals to Smithay's implementations.
+smithay::delegate_compositor!(Noxl);
+smithay::delegate_data_device!(Noxl);
+smithay::delegate_seat!(Noxl);
+smithay::delegate_shm!(Noxl);
+smithay::delegate_xdg_shell!(Noxl);
+
+/// Per-client state.
+#[derive(Default)]
+pub struct ClientState {
+    pub compositor_state: CompositorClientState,
+}
+
+impl ClientData for ClientState {
+    fn initialized(&self, _client_id: ClientId) {}
+    fn disconnected(&self, _client_id: ClientId, _reason: DisconnectReason) {}
+}
 
 /// A workspace (virtual desktop).
 #[derive(Debug, Default)]
 pub struct Workspace {
-    /// Index (0-based).
     pub index: u32,
-    /// Windows on this workspace.
-    pub windows: Vec<Window>,
-    /// Whether this workspace is active.
+    pub windows: Vec<smithay::desktop::Window>,
     pub active: bool,
 }
 
-/// A monitor/output with its own coordinate space.
+/// A monitor/output.
 #[derive(Debug)]
 pub struct OutputState {
-    pub output: Output,
-    /// Logical size (in points).
+    pub output: smithay::output::Output,
     pub size: Size<i32, smithay::utils::Logical>,
-    /// Scale factor.
     pub scale: i32,
-    /// Position in the global compositor space.
     pub position: Point<i32, smithay::utils::Logical>,
 }
 
 /// The main compositor state.
-pub struct Compositor {
-    /// Smithay display handle.
-    pub display: DisplayHandle,
-    /// Event loop.
-    pub event_loop: EventLoop<'static, Self>,
-    /// Common state.
-    pub common: CommonState,
-    /// Seat (input devices).
-    pub seat: Seat<Self>,
-    /// Space for rendering windows.
-    pub space: Space<Window>,
-    /// Layer-shell surfaces (panel, launcher, notifications).
-    pub layer_map: layer_map::LayerMap,
-    /// Outputs (monitors).
-    pub outputs: Vec<OutputState>,
-    /// Workspaces.
-    pub workspaces: Vec<Workspace>,
-    /// Currently active workspace index.
-    pub active_workspace: u32,
-    /// Config.
-    pub config: noxl_config::NoxlConfig,
-    /// IPC server (control socket).
-    pub ipc: Option<ipc::IpcServer>,
-    /// Whether running nested.
-    pub nested: bool,
-    /// Pending window to focus after mapping.
-    pub pending_focus: Option<Window>,
-}
-
-/// Common Smithay state shared across protocol implementations.
-pub struct CommonState {
-    pub compositor: CompositorState,
-    pub xdg_shell: XdgShellState,
-    pub shm: ShmState,
-    pub output_manager: OutputManagerState,
+pub struct Noxl {
+    pub compositor_state: CompositorState,
+    pub xdg_shell_state: XdgShellState,
+    pub shm_state: ShmState,
     pub seat_state: SeatState<Self>,
-    pub data_device: DataDeviceState,
+    pub data_device_state: DataDeviceState,
+    pub seat: Seat<Self>,
+    pub space: Space<smithay::desktop::Window>,
+    pub outputs: Vec<OutputState>,
+    pub workspaces: Vec<Workspace>,
+    pub active_workspace: u32,
+    pub config: noxl_config::NoxlConfig,
+    pub ipc: Option<ipc::IpcServer>,
+    pub nested: bool,
+    pub display: DisplayHandle,
 }
 
-impl ClientData for NoxlClientData {
-    fn initialized(&self, _client_id: ClientId) {}
-    fn disconnected(&self, _client_id: ClientId, _state: DisconnectedState) {}
-}
-
-/// Per-client data.
-pub struct NoxlClientData {
-    /// Whether the client has been told about the compositor's capabilities.
-    pub compositor_ready: bool,
-}
-
-impl Compositor {
-    /// Create a new compositor instance.
+impl Noxl {
     pub fn new(
+        display: &Display<Self>,
         config: noxl_config::NoxlConfig,
         no_ipc: bool,
         nested: bool,
     ) -> anyhow::Result<Self> {
-        let event_loop = EventLoop::try_new()?;
+        let dh = display.handle();
 
-        let display = Display::new(event_loop.handle())?;
-        let display_handle = display.handle();
+        let compositor_state = CompositorState::new::<Self>(&dh);
+        let xdg_shell_state = XdgShellState::new::<Self>(&dh);
+        let shm_state = ShmState::new::<Self>(&dh, vec![]);
+        let mut seat_state = SeatState::new();
+        let seat = seat_state.new_wl_seat(&dh, "noxl");
+        let data_device_state = DataDeviceState::new::<Self>(&dh);
 
-        // Initialize Wayland protocol globals.
-        let compositor_state = CompositorState::new::<Self>(&display_handle);
-        let xdg_shell = XdgShellState::new::<Self>(&display_handle);
-        let shm = ShmState::new::<Self>(&display_handle, vec![]);
-        let output_manager = OutputManagerState::new::<Self>(&display_handle);
-        let seat_state = SeatState::new::<Self>(&display_handle, "seat-0");
-        let data_device = DataDeviceState::new::<Self>(&display_handle);
-
-        let seat = seat_state.add_seat();
-
-        let mut compositor = Self {
-            display: display_handle,
-            event_loop,
-            common: CommonState {
-                compositor: compositor_state,
-                xdg_shell,
-                shm,
-                output_manager,
-                seat_state,
-                data_device,
-            },
+        let mut state = Self {
+            compositor_state,
+            xdg_shell_state,
+            shm_state,
+            seat_state,
+            data_device_state,
             seat,
-            space: Space::new(),
-            layer_map: layer_map::LayerMap::default(),
+            space: Space::default(),
             outputs: Vec::new(),
             workspaces: vec![Workspace {
                 index: 0,
@@ -154,84 +122,40 @@ impl Compositor {
             config,
             ipc: None,
             nested,
-            pending_focus: None,
+            display: dh.clone(),
         };
 
-        // Set up input handling.
-        input::init(&mut compositor)?;
-
-        // Set up IPC control socket.
+        // Set up IPC.
         if !no_ipc {
             match ipc::IpcServer::new() {
                 Ok(server) => {
                     tracing::info!(path = %noxl_ipc::control_socket_path().display(), "IPC server started");
-                    compositor.ipc = Some(server);
+                    state.ipc = Some(server);
                 }
-                Err(e) => {
-                    tracing::error!(error = %e, "failed to start IPC server");
-                }
+                Err(e) => tracing::error!(error = %e, "failed to start IPC server"),
             }
         }
 
-        Ok(compositor)
+        Ok(state)
     }
 
-    /// Run the compositor event loop.
-    pub async fn run(&mut self) -> anyhow::Result<()> {
-        // Create the initial output (the backend will add more).
-        self.create_output("initial")?;
-
-        loop {
-            // Dispatch Wayland events.
-            self.display
-                .dispatch_clients(&mut self.common)
-                .map_err(|e| anyhow::anyhow!("wayland dispatch error: {}", e))?;
-
-            // Process IPC commands.
-            if let Some(ipc) = &mut self.ipc {
-                for cmd in ipc.poll_commands() {
-                    self.handle_command(cmd);
-                }
-            }
-
-            // Render a frame.
-            render::render(self)?;
-
-            // Flush and sleep briefly (the backend drives the actual frame timing).
-            self.display.flush_clients()?;
-            std::thread::sleep(std::time::Duration::from_millis(8));
+    /// Focus a workspace by index.
+    pub fn focus_workspace(&mut self, index: u32) {
+        if index as usize >= self.workspaces.len() {
+            return;
         }
-    }
-
-    /// Create a new output (monitor).
-    pub fn create_output(&mut self, name: &str) -> anyhow::Result<()> {
-        let output = Output::new(
-            name.to_string(),
-            PhysicalProperties {
-                size: Size::from((0, 0)),
-                subpixel: Subpixel::Unknown,
-            },
-        );
-
-        // In nested mode, use the window size; otherwise 1920x1080.
-        let size = Size::from((1920, 1080));
-
-        self.outputs.push(OutputState {
-            output: output.clone(),
-            size,
-            scale: 1,
-            position: Point::from((0, 0)),
-        });
-
-        // Commit the output to the output manager so clients see it.
-        self.common.output_manager.connect(&output);
-
-        tracing::info!(name, "output created");
-        Ok(())
+        for (i, ws) in self.workspaces.iter_mut().enumerate() {
+            ws.active = i == index as usize;
+        }
+        self.active_workspace = index;
+        tracing::info!(index, "workspace focused");
+        if let Some(ipc) = &mut self.ipc {
+            ipc.send_event(noxl_ipc::Event::WorkspaceChanged { index });
+        }
     }
 
     /// Handle an IPC command.
-    fn handle_command(&mut self, cmd: noxl_ipc::Command) {
+    pub fn handle_command(&mut self, cmd: noxl_ipc::Command) {
         use noxl_ipc::Command;
         match cmd {
             Command::Ping => {
@@ -242,8 +166,6 @@ impl Compositor {
                 }
             }
             Command::LauncherToggle => {
-                // Toggle the launcher layer-shell surface.
-                // (Full implementation in protocols::layer)
                 tracing::debug!("launcher toggle requested");
             }
             Command::Lock => {
@@ -292,9 +214,7 @@ impl Compositor {
                             ipc.send_event(noxl_ipc::Event::ConfigReloaded);
                         }
                     }
-                    Err(e) => {
-                        tracing::error!(error = %e, "config reload failed");
-                    }
+                    Err(e) => tracing::error!(error = %e, "config reload failed"),
                 }
             }
             Command::Notify { summary, body, app_icon } => {
@@ -309,24 +229,86 @@ impl Compositor {
             }
         }
     }
+}
 
-    /// Focus a workspace by index.
-    pub fn focus_workspace(&mut self, index: u32) {
-        if index as usize >= self.workspaces.len() {
-            return;
-        }
-        for (i, ws) in self.workspaces.iter_mut().enumerate() {
-            ws.active = i == index as usize;
-        }
-        self.active_workspace = index;
-        tracing::info!(index, "workspace focused");
-        if let Some(ipc) = &mut self.ipc {
-            ipc.send_event(noxl_ipc::Event::WorkspaceChanged { index });
-        }
+// --- Smithay handler trait implementations ---
+
+impl BufferHandler for Noxl {
+    fn buffer_destroyed(&mut self, _buffer: &smithay::reexports::wayland_server::protocol::wl_buffer::WlBuffer) {}
+}
+
+impl XdgShellHandler for Noxl {
+    fn xdg_shell_state(&mut self) -> &mut XdgShellState {
+        &mut self.xdg_shell_state
     }
 
-    /// Get the currently active workspace.
-    pub fn active_workspace_mut(&mut self) -> &mut Workspace {
-        &mut self.workspaces[self.active_workspace as usize]
+    fn new_toplevel(&mut self, surface: ToplevelSurface) {
+        // Activate the window and add it to the active workspace.
+        surface.with_pending_state(|state| {
+            state.states.set(smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::State::Activated);
+        });
+        surface.send_configure();
+
+        let window = smithay::desktop::Window::new(surface);
+        if let Some(ws) = self.workspaces.iter_mut().find(|ws| ws.active) {
+            ws.windows.push(window);
+        }
+        tracing::debug!("new toplevel surface");
     }
+
+    fn new_popup(&mut self, _surface: PopupSurface, _positioner: PositionerState) {
+        tracing::debug!("new popup surface");
+    }
+
+    fn grab(&mut self, _surface: PopupSurface, _seat: smithay::reexports::wayland_server::protocol::wl_seat::WlSeat, _serial: smithay::utils::Serial) {}
+
+    fn reposition_request(&mut self, _surface: PopupSurface, _positioner: PositionerState, _token: u32) {}
+}
+
+impl SelectionHandler for Noxl {
+    type SelectionUserData = ();
+}
+
+impl DataDeviceHandler for Noxl {
+    fn data_device_state(&self) -> &DataDeviceState {
+        &self.data_device_state
+    }
+}
+
+impl ClientDndGrabHandler for Noxl {}
+impl ServerDndGrabHandler for Noxl {
+    fn send(&mut self, _mime_type: String, _fd: std::os::unix::io::OwnedFd, _seat: Seat<Self>) {}
+}
+
+impl CompositorHandler for Noxl {
+    fn compositor_state(&mut self) -> &mut CompositorState {
+        &mut self.compositor_state
+    }
+
+    fn client_compositor_state<'a>(&self, client: &'a Client) -> &'a CompositorClientState {
+        &client.get_data::<ClientState>().unwrap().compositor_state
+    }
+
+    fn commit(&mut self, surface: &WlSurface) {
+        smithay::backend::renderer::utils::on_commit_buffer_handler::<Self>(surface);
+    }
+}
+
+impl ShmHandler for Noxl {
+    fn shm_state(&self) -> &ShmState {
+        &self.shm_state
+    }
+}
+
+impl smithay::input::SeatHandler for Noxl {
+    type KeyboardFocus = WlSurface;
+    type PointerFocus = WlSurface;
+    type TouchFocus = WlSurface;
+
+    fn seat_state(&mut self) -> &mut SeatState<Self> {
+        &mut self.seat_state
+    }
+
+    fn focus_changed(&mut self, _seat: &Seat<Self>, _focused: Option<&WlSurface>) {}
+    fn cursor_image(&mut self, _seat: &Seat<Self>, _image: smithay::input::pointer::CursorImageStatus) {}
 }

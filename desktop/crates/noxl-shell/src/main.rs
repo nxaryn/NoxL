@@ -77,6 +77,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut spawned: Vec<(&'static str, std::process::Child)> = Vec::new();
     for child in children {
+        let mut child = child;
         match child.command.spawn() {
             Ok(p) => {
                 tracing::info!(name = child.name, "component spawned");

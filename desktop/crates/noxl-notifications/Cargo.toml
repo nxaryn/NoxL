@@ -6,6 +6,10 @@ license.workspace = true
 repository.workspace = true
 description = "NoxL notification centre: org.freedesktop.Notifications + history + DND"
 
+[lib]
+name = "noxl_notifications"
+path = "src/lib.rs"
+
 [[bin]]
 name = "noxl-notifications"
 path = "src/main.rs"

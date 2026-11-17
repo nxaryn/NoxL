@@ -1,39 +1,63 @@
 //! Rendering.
 //!
-//! Draws a frame: the wallpaper background, then layer-shell surfaces (panel,
-//! launcher, notifications), then windows on the active workspace.
-//!
-//! Smithay's renderer handles the actual GPU work; this module orchestrates the
-//! draw order and applies the OBSIDIAN background color as a fallback before
-//! the wallpaper texture is loaded.
+//! Draws a frame: the OBSIDIAN background color, then windows on the active
+//! workspace. Uses Smithay's GLES renderer.
 
 use smithay::{
-    backend::renderer::damage::OutputDamageTracker,
-    desktop::space::Space,
-    utils::{Rectangle, Size},
+    backend::{
+        renderer::{
+            element::{
+                surface::{render_elements_from_surface_tree, WaylandSurfaceRenderElement},
+                Kind,
+            },
+            gles::GlesRenderer,
+            utils::draw_render_elements,
+            Color32F, Frame, Renderer,
+        },
+        winit::WinitGraphicsBackend,
+    },
+    utils::{Rectangle, Transform},
 };
 
-use crate::state::Compositor;
+use crate::state::Noxl;
 
 /// Render a single frame.
-pub fn render(compositor: &mut Compositor) -> anyhow::Result<()> {
-    // In a full implementation this would:
-    // 1. Clear the output with the OBSIDIAN background color.
-    // 2. Draw the wallpaper (from config.wallpaper).
-    // 3. Render layer-shell surfaces (panel, launcher, notifications).
-    // 4. Render windows on the active workspace via the Space.
-    // 5. Apply damage tracking and commit the frame.
-    //
-    // The draw order and background color come from the config, so theme
-    // changes apply without a restart.
+pub fn render(
+    compositor: &mut Noxl,
+    backend: &mut WinitGraphicsBackend<GlesRenderer>,
+    _winit: &mut smithay::backend::winit::WinitEventLoop,
+    size: smithay::utils::Size<i32, smithay::utils::Physical>,
+) -> anyhow::Result<()> {
+    let damage = Rectangle::from_size(size);
 
-    let _ = &compositor.space;
-    let _ = &compositor.layer_map;
+    let (renderer, mut framebuffer) = backend.bind()?;
+    let elements = compositor
+        .xdg_shell_state
+        .toplevel_surfaces()
+        .iter()
+        .flat_map(|surface| {
+            render_elements_from_surface_tree(
+                renderer,
+                surface.wl_surface(),
+                (0, 0),
+                1.0,
+                1.0,
+                Kind::Unspecified,
+            )
+        })
+        .collect::<Vec<WaylandSurfaceRenderElement<GlesRenderer>>>();
+
+    let mut frame = renderer.render(&mut framebuffer, size, Transform::Flipped180)?;
+    frame.clear(background_color(compositor), &[damage])?;
+    draw_render_elements(&mut frame, 1.0, &elements, &[damage])?;
+    let _ = frame.finish()?;
+
     Ok(())
 }
 
 /// The OBSIDIAN background color as RGBA floats (from the theme).
-pub fn background_color(compositor: &Compositor) -> (f32, f32, f32, f32) {
+pub fn background_color(compositor: &Noxl) -> Color32F {
     noxl_config::Colors::parse_hex(&compositor.config.theme.colors.bg_primary)
-        .unwrap_or((0.035, 0.035, 0.05, 1.0))
+        .map(|(r, g, b, a)| Color32F::new(r, g, b, a))
+        .unwrap_or(Color32F::new(0.035, 0.035, 0.05, 1.0))
 }

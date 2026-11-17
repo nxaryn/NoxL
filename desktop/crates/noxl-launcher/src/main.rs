@@ -12,8 +12,7 @@ use anyhow::Context;
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
 
-mod apps;
-mod search;
+use noxl_launcher::{apps, search};
 
 #[derive(Debug, Parser)]
 #[command(name = "noxl-launcher", about = "NoxL application launcher")]

@@ -6,6 +6,10 @@ license.workspace = true
 repository.workspace = true
 description = "NoxL application launcher: search, categories, pinned/recent apps, power controls"
 
+[lib]
+name = "noxl_launcher"
+path = "src/lib.rs"
+
 [[bin]]
 name = "noxl-launcher"
 path = "src/main.rs"

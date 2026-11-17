@@ -1,19 +1,10 @@
 //! NoxL Wayland compositor.
 //!
-//! Built on Smithay. This is the heart of NoxL Desktop: it owns the Wayland
-//! display, manages windows (floating + tiling + snapping), handles input,
-//! renders the desktop (background, windows, and layer-shell surfaces for the
-//! panel/launcher/notifications), and exposes the control socket for the other
-//! NoxL processes.
+//! Built on Smithay 0.7. This is the heart of NoxL Desktop: it owns the Wayland
+//! display, manages windows, handles input, and renders the desktop.
 //!
-//! Architecture (see docs/PHASE2.md):
-//! - `state`      — global compositor state (workspaces, windows, outputs)
-//! - `window`     — window management primitives (focus, snap, tile, fullscreen)
-//! - `input`      — keyboard/pointer handling and keybindings
-//! - `protocols`  — Wayland protocol implementations (xdg-shell, layer-shell,
-//!                  xdg-decoration, output, seat)
-//! - `ipc`        — control-socket server (JSON lines)
-//! - `render`     — drawing (background, windows, layer surfaces)
+//! In nested mode it runs inside an existing Wayland/X11 session (for
+//! development). In standalone mode it would use DRM/libinput/udev (Phase 6).
 
 pub mod state;
 pub mod window;
@@ -26,17 +17,23 @@ use anyhow::Context;
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
 
-/// Command-line options.
+use smithay::{
+    backend::{
+        input::{InputEvent, KeyboardKeyEvent},
+        renderer::gles::GlesRenderer,
+        winit::{self as smithay_winit, WinitEvent},
+    },
+    reexports::wayland_server::{Display, ListeningSocket},
+};
+
 #[derive(Debug, Parser)]
 #[command(name = "noxl-compositor", about = "NoxL Wayland compositor")]
 struct Opts {
-    /// Log level (trace, debug, info, warn, error).
     #[arg(long, default_value = "info", env = "RUST_LOG")]
     log_level: String,
-    /// Disable the control socket (for debugging).
     #[arg(long)]
     no_ipc: bool,
-    /// Start nested (for development inside an existing Wayland session).
+    /// Start nested inside an existing Wayland session (development).
     #[arg(long)]
     nested: bool,
 }
@@ -53,18 +50,78 @@ fn main() -> anyhow::Result<()> {
 
     tracing::info!("NoxL compositor starting");
 
-    let rt = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .context("failed to build tokio runtime")?;
+    let config = noxl_config::NoxlConfig::load().context("failed to load config")?;
+    tracing::info!(theme = %config.theme.name, "config loaded");
 
-    rt.block_on(async move {
-        let config = noxl_config::NoxlConfig::load().context("failed to load config")?;
-        tracing::info!(theme = %config.theme.name, "config loaded");
+    // Create the Wayland display.
+    let mut display: Display<state::Noxl> = Display::new().map_err(|e| anyhow::anyhow!("{}", e))?;;;
+    let dh = display.handle();
 
-        let mut compositor = state::Compositor::new(config, opts.no_ipc, opts.nested)
-            .context("failed to initialize compositor state")?;
+    // Set up the winit backend (nested mode).
+    let (mut backend, mut winit) = smithay_winit::init::<GlesRenderer>().map_err(|e| anyhow::anyhow!("{}", e))?;;
+    let size = backend.window_size();
 
-        compositor.run().await
-    })
+    // Create the compositor state.
+    let mut compositor = state::Noxl::new(&display, config, opts.no_ipc, opts.nested)
+        .context("failed to initialize compositor state")?;
+
+    // Add a keyboard.
+    let keyboard = compositor
+        .seat
+        .add_keyboard(Default::default(), 200, 200)
+        .context("failed to add keyboard")?;
+
+    // Set up the Wayland socket.
+    let listener = ListeningSocket::bind("wayland-1")?;
+    std::env::set_var("WAYLAND_DISPLAY", "wayland-1");
+    let mut clients = Vec::new();
+
+    let start_time = std::time::Instant::now();
+
+    // Event loop.
+    loop {
+        let status = winit.dispatch_new_events(|event| match event {
+            WinitEvent::Resized { .. } => {}
+            WinitEvent::Input(event) => match event {
+                InputEvent::Keyboard { event } => {
+                    input::handle_keyboard_event(&mut compositor, &keyboard, event.key_code(), event.state());
+                }
+                _ => {}
+            },
+            _ => (),
+        });
+
+        // Process IPC commands.
+        if let Some(ipc) = &mut compositor.ipc {
+            for cmd in ipc.poll_commands() {
+                compositor.handle_command(cmd);
+            }
+        }
+
+        // Render.
+        render::render(&mut compositor, &mut backend, &mut winit, size)?;
+
+        // Dispatch Wayland clients.
+        display.dispatch_clients(&mut compositor)?;
+        display.flush_clients()?;
+
+        // Accept new clients.
+        if let Some(stream) = listener.accept()? {
+            let client = display
+                .handle()
+                .insert_client(stream, std::sync::Arc::new(state::ClientState::default()))
+                .ok();
+            if let Some(client) = client {
+                clients.push(client);
+            }
+        }
+
+        // Send frame callbacks.
+        // (Frame callbacks are sent by the renderer in a full implementation.)
+
+        match status {
+            winit::platform::pump_events::PumpStatus::Continue => (),
+            winit::platform::pump_events::PumpStatus::Exit(_) => return Ok(()),
+        }
+    }
 }

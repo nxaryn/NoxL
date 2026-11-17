@@ -1,0 +1,26 @@
+[package]
+name = "noxl-widgets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NoxL widget engine: modular desktop widgets with a sandboxed API"
+
+[[bin]]
+name = "noxl-widgets"
+path = "src/main.rs"
+
+[dependencies]
+noxl-config.workspace = true
+noxl-ipc.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+directories.workspace = true
+sysinfo = "0.30"
+chrono = "0.4"

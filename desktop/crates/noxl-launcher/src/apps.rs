@@ -86,30 +86,23 @@ pub fn load_applications() -> anyhow::Result<Vec<AppEntry>> {
 
 /// Parse a single .desktop file.
 fn parse_desktop_entry(path: &std::path::Path, id: &str) -> Option<AppEntry> {
-    let entry = DesktopEntry::from_str(&std::fs::read_to_string(path).ok()?, true).ok()?;
+    let locales: Vec<String> = vec!["en".into()];
+    let entry = DesktopEntry::from_path(path.to_path_buf(), &locales).ok()?;
 
-    // Skip hidden entries.
-    if entry.hidden() {
+    // Skip NoDisplay entries.
+    let visible = !entry.no_display();
+    if !visible {
         return None;
     }
 
     // Only show apps that have a name and an Exec line.
-    let name = entry.name::<String>(&["en"]).or_else(|| {
-        // Fall back to any available locale.
-        entry.name::<String>(&[]).clone()
-    })?;
-
+    let name = entry.name::<String>(&locales)?.to_string();
     let exec = entry.exec()?.to_string();
-
     let icon = entry.icon().map(|s| s.to_string()).unwrap_or_default();
-
     let categories: Vec<String> = entry
         .categories()
         .map(|cats| cats.iter().map(|s| s.to_string()).collect())
         .unwrap_or_default();
-
-    // Skip NoDisplay entries.
-    let visible = !entry.no_display();
 
     Some(AppEntry {
         id: id.to_string(),

@@ -156,28 +156,40 @@ impl Paths {
 fn dirs_config() -> PathBuf {
     std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
-        .or_else(|| directories::BaseDirs::new().map(|b| b.config_dir().to_path_buf()))
+        .or_else(|| {
+            directories::BaseDirs::new()
+                .map(|b| b.config_dir().to_path_buf())
+        })
         .unwrap_or_else(|| PathBuf::from("/etc"))
 }
 
 fn dirs_data() -> PathBuf {
     std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
-        .or_else(|| directories::BaseDirs::new().map(|b| b.data_dir().to_path_buf()))
+        .or_else(|| {
+            directories::BaseDirs::new()
+                .map(|b| b.data_dir().to_path_buf())
+        })
         .unwrap_or_else(|| PathBuf::from("/usr/share"))
 }
 
 fn dirs_state() -> PathBuf {
     std::env::var_os("XDG_STATE_HOME")
         .map(PathBuf::from)
-        .or_else(|| directories::BaseDirs::new().map(|b| b.state_dir().to_path_buf()))
+        .or_else(|| {
+            directories::BaseDirs::new()
+                .and_then(|b| b.state_dir().map(|p| p.to_path_buf()))
+        })
         .unwrap_or_else(|| PathBuf::from("/var/lib"))
 }
 
 fn dirs_cache() -> PathBuf {
     std::env::var_os("XDG_CACHE_HOME")
         .map(PathBuf::from)
-        .or_else(|| directories::BaseDirs::new().map(|b| b.cache_dir().to_path_buf()))
+        .or_else(|| {
+            directories::BaseDirs::new()
+                .map(|b| b.cache_dir().to_path_buf())
+        })
         .unwrap_or_else(|| PathBuf::from("/var/cache"))
 }
 

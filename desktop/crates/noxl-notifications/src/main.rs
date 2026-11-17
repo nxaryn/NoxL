@@ -10,9 +10,7 @@ use anyhow::Context;
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
 
-mod daemon;
-mod history;
-mod render;
+use noxl_notifications::{daemon, history, render};
 
 #[derive(Debug, Parser)]
 #[command(name = "noxl-notifications", about = "NoxL notification centre")]

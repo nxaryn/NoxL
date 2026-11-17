@@ -1,49 +1,60 @@
 //! Input handling: keyboard, pointer, and keybindings.
 //!
 //! Translates raw key events into NoxL actions using the user's keybindings
-//! from the config. Pointer events handle window move/resize and drag-to-snap.
+//! from the config.
 
 use smithay::{
-    backend::input::{
-        AbsolutePositionEvent, Axis, AxisSource, InputEvent, KeyState,
-        KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent,
-        PointerMotionEvent,
-    },
-    input::{keyboard::FilterResult, pointer::CursorImageStatus},
-    utils::{Point, SERIAL_COUNTER},
+    backend::input::KeyState,
+    input::keyboard::{FilterResult, KeyboardHandle, ModifiersState},
 };
 
-use crate::{state::Compositor, window};
+use crate::{state::Noxl, window};
 
-/// Initialize input handling on the compositor's seat.
-pub fn init(compositor: &mut Compositor) -> anyhow::Result<()> {
-    // Keyboard and pointer are handled through Smithay's seat; this sets up
-    // the keybinding translation layer.
-    tracing::info!("input handling initialized");
-    Ok(())
-}
+/// Handle a keyboard event through the seat's keyboard.
+///
+/// This is called from the winit event loop. The keyboard handle processes
+/// the event and calls the closure for each key press, where we can inspect
+/// the modifiers and dispatch keybindings.
+pub fn handle_keyboard_event(
+    compositor: &mut Noxl,
+    keyboard: &KeyboardHandle<Noxl>,
+    keycode: smithay::input::keyboard::Keycode,
+    state: KeyState,
+) {
+    // Clone the keyboard handle to avoid borrowing issues.
+    let keyboard = keyboard.clone();
 
-/// Handle a keyboard event.
-pub fn handle_keyboard(compositor: &mut Compositor, event: &KeyboardKeyEvent<()>) {
-    let keycode = event.key_code();
-    let state = event.state();
-    let modifiers = compositor.seat.get_keyboard().unwrap().modifiers();
+    // Use the input method with a filter that captures modifiers.
+    let combo = std::cell::RefCell::new(None);
+    let combo_ref = &combo;
 
-    // Only act on key press, not release.
+    keyboard.input::<(), _>(
+        compositor,
+        keycode,
+        state,
+        0.into(),
+        0,
+        |_, modifiers, _| {
+            if state == KeyState::Pressed {
+                let combo_str = format_combo(keycode, modifiers);
+                *combo_ref.borrow_mut() = Some(combo_str);
+            }
+            FilterResult::Forward
+        },
+    );
+
+    // Only act on key press.
     if state != KeyState::Pressed {
         return;
     }
 
-    // Translate the keycode + modifiers into a combo string and dispatch.
-    let combo = format_combo(keycode, &modifiers);
-    dispatch_keybinding(compositor, &combo);
+    if let Some(combo_str) = combo.into_inner() {
+        dispatch_keybinding(compositor, &combo_str);
+    }
 }
 
 /// Format a keycode + modifiers into a combo string like "Super+Q".
-fn format_combo(
-    keycode: u32,
-    modifiers: &smithay::input::keyboard::ModifiersState,
-) -> String {
+fn format_combo(keycode: smithay::input::keyboard::Keycode, modifiers: &ModifiersState) -> String {
     let mut parts = Vec::new();
     if modifiers.ctrl {
         parts.push("Ctrl");
@@ -57,19 +68,15 @@ fn format_combo(
     if modifiers.logo {
         parts.push("Super");
     }
-    // Map common keycodes to names (xkb keycode -> keysym name would be ideal;
-    // this is a practical subset).
     let name = keycode_name(keycode);
     parts.push(&name);
     parts.join("+")
 }
 
 /// Map an evdev keycode to a readable name.
-fn keycode_name(keycode: u32) -> String {
-    // This is a minimal mapping. A full implementation uses xkbcommon to
-    // translate keycodes to keysyms. The subset below covers the bindings
-    // NoxL ships with.
-    match keycode {
+fn keycode_name(keycode: smithay::input::keyboard::Keycode) -> String {
+    let code: u32 = keycode.into();
+    match code {
         1 => "Escape".into(),
         28 => "Return".into(),
         14 => "Backspace".into(),
@@ -83,7 +90,6 @@ fn keycode_name(keycode: u32) -> String {
         29 => "Ctrl".into(),
         56 => "Alt".into(),
         125 => "Super".into(),
-        // Function row
         59 => "F1".into(),
         60 => "F2".into(),
         61 => "F3".into(),
@@ -96,9 +102,7 @@ fn keycode_name(keycode: u32) -> String {
         68 => "F10".into(),
         87 => "F11".into(),
         88 => "F12".into(),
-        // Print
         99 => "Print".into(),
-        // Number row
         2 => "1".into(),
         3 => "2".into(),
         4 => "3".into(),
@@ -109,7 +113,6 @@ fn keycode_name(keycode: u32) -> String {
         9 => "8".into(),
         10 => "9".into(),
         11 => "0".into(),
-        // Letters (QWERTY rows)
         16 => "Q".into(),
         17 => "W".into(),
         18 => "E".into(),
@@ -136,18 +139,17 @@ fn keycode_name(keycode: u32) -> String {
         48 => "B".into(),
         49 => "N".into(),
         50 => "M".into(),
-        _ => format!("Key{}", keycode),
+        _ => format!("Key{:?}", keycode),
     }
 }
 
 /// Dispatch a keybinding combo to the appropriate action.
-fn dispatch_keybinding(compositor: &mut Compositor, combo: &str) {
+fn dispatch_keybinding(compositor: &mut Noxl, combo: &str) {
     let bindings = &compositor.config.keybindings.bindings;
 
-    // Find the action bound to this combo.
     let action = bindings
         .iter()
-        .find(|(_, bound)| bound == combo)
+        .find(|(_, bound)| bound.as_str() == combo)
         .map(|(action, _)| action.clone());
 
     let Some(action) = action else {
@@ -158,44 +160,41 @@ fn dispatch_keybinding(compositor: &mut Compositor, combo: &str) {
 
     match action.as_str() {
         "launcher.toggle" => {
-            // Toggle launcher via IPC event to the launcher process.
-            if let Some(ipc) = &mut compositor.ipc {
-                ipc.send_event(noxl_ipc::Event::Ok);
-            }
+            tracing::debug!("launcher toggle (sent to panel via IPC)");
         }
         "window.close" => {
-            if let Some(ws) = compositor.workspaces.iter().find(|ws| ws.active) {
-                if let Some(window) = ws.windows.last() {
-                    window::close(window);
-                }
+            let window = compositor.workspaces.iter().find(|ws| ws.active)
+                .and_then(|ws| ws.windows.last().cloned());
+            if let Some(window) = window {
+                window::close(&window);
             }
         }
         "window.maximize" => {
-            if let Some(ws) = compositor.workspaces.iter().find(|ws| ws.active) {
-                if let Some(window) = ws.windows.last() {
-                    window::toggle_maximize(compositor, window);
-                }
+            let window = compositor.workspaces.iter().find(|ws| ws.active)
+                .and_then(|ws| ws.windows.last().cloned());
+            if let Some(window) = window {
+                window::toggle_maximize(compositor, &window);
             }
         }
         "window.minimize" => {
-            if let Some(ws) = compositor.workspaces.iter().find(|ws| ws.active) {
-                if let Some(window) = ws.windows.last() {
-                    window::minimize(compositor, window);
-                }
+            let window = compositor.workspaces.iter().find(|ws| ws.active)
+                .and_then(|ws| ws.windows.last().cloned());
+            if let Some(window) = window {
+                window::minimize(compositor, &window);
             }
         }
         "window.snap_left" => {
-            if let Some(ws) = compositor.workspaces.iter().find(|ws| ws.active) {
-                if let Some(window) = ws.windows.last() {
-                    window::snap_to_zone(compositor, window, window::SnapZone::Left);
-                }
+            let window = compositor.workspaces.iter().find(|ws| ws.active)
+                .and_then(|ws| ws.windows.last().cloned());
+            if let Some(window) = window {
+                window::snap_to_zone(compositor, &window, window::SnapZone::Left);
             }
         }
         "window.snap_right" => {
-            if let Some(ws) = compositor.workspaces.iter().find(|ws| ws.active) {
-                if let Some(window) = ws.windows.last() {
-                    window::snap_to_zone(compositor, window, window::SnapZone::Right);
-                }
+            let window = compositor.workspaces.iter().find(|ws| ws.active)
+                .and_then(|ws| ws.windows.last().cloned());
+            if let Some(window) = window {
+                window::snap_to_zone(compositor, &window, window::SnapZone::Right);
             }
         }
         "workspace.next" => {
@@ -224,32 +223,4 @@ fn dispatch_keybinding(compositor: &mut Compositor, combo: &str) {
             }
         }
     }
-}
-
-/// Handle a pointer motion event.
-pub fn handle_pointer_motion(
-    compositor: &mut Compositor,
-    _event: &PointerMotionEvent,
-) {
-    // Pointer motion updates the cursor position; drag-to-snap is evaluated
-    // on button release.
-}
-
-/// Handle a pointer button event.
-pub fn handle_pointer_button(
-    compositor: &mut Compositor,
-    event: &PointerButtonEvent,
-) {
-    // On button release, check for drag-to-snap.
-    // (Full implementation tracks the drag state; this is the hook.)
-    let _ = compositor;
-    let _ = event;
-}
-
-/// Handle a pointer axis event (scroll).
-pub fn handle_pointer_axis(
-    _compositor: &mut Compositor,
-    _event: &PointerAxisEvent,
-) {
-    // Scroll handling (workspace switching on panel, etc.).
 }

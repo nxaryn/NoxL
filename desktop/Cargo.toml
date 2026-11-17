@@ -8,6 +8,8 @@ members = [
     "crates/noxl-launcher",
     "crates/noxl-notifications",
     "crates/noxl-shell",
+    "crates/noxl-settings",
+    "crates/noxl-widgets",
 ]
 
 [workspace.package]
@@ -15,11 +17,16 @@ version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/Noxaryn/NoxL"
-rust-version = "1.75"
 
 [workspace.dependencies]
 # Wayland / wlroots stack
-smithay = { git = "https://github.com/Smithay/smithay", default-features = false, features = ["desktop", "wayland", "xwayland", "renderer_gl"] }
+smithay = { version = "0.7", default-features = false, features = [
+    "desktop",
+    "wayland_frontend",
+    "renderer_gl",
+    "backend_winit",
+] }
+winit = { version = "0.30", features = ["wayland", "x11", "rwh_06"] }
 wayland-server = "0.31"
 wayland-protocols = { version = "0.32", features = ["client", "server", "staging"] }
 wayland-client = "0.31"
@@ -42,7 +49,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Utilities
 anyhow = "1"
 thiserror = "1"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env"] }
 
 # Internal crates
 noxl-config = { path = "crates/noxl-config" }
