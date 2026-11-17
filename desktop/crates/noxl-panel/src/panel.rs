@@ -10,7 +10,7 @@ use anyhow::{Context, Result};
 
 use wayland_client::{
     globals::{registry_queue_init, GlobalListContents},
-    protocol::{wl_compositor, wl_output, wl_registry, wl_region, wl_shm, wl_surface},
+    protocol::{wl_buffer, wl_compositor, wl_output, wl_registry, wl_region, wl_shm, wl_surface},
     Connection, Dispatch, Proxy, QueueHandle,
 };
 
@@ -18,7 +18,7 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
     zwlr_layer_shell_v1, zwlr_layer_surface_v1,
 };
 
-use crate::plugins;
+use crate::{draw, plugins};
 
 /// The panel application state.
 pub struct Panel {
@@ -34,6 +34,12 @@ pub struct Panel {
     pub running: bool,
     /// Pending configure serial.
     pub configure_serial: Option<u32>,
+    /// The shared-memory buffer we draw into.
+    pub shm_buffer: Option<draw::ShmBuffer>,
+    /// The wl_shm global (needed to create buffers).
+    pub shm: Option<wl_shm::WlShm>,
+    /// Queue handle for creating resources.
+    pub qh: Option<QueueHandle<Panel>>,
 }
 
 /// Run the panel.
@@ -122,6 +128,9 @@ pub fn run(config: noxl_config::NoxlConfig) -> Result<()> {
         plugins: plugins::init(&panel_config)?,
         running: true,
         configure_serial: None,
+        shm_buffer: None,
+        shm: Some(_shm),
+        qh: Some(qh.clone()),
     };
 
     // Event loop.
@@ -241,6 +250,36 @@ impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for Panel {
                 tracing::debug!(serial, width, height, "layer surface configured");
                 app.layer_surface.ack_configure(serial);
                 app.configure_serial = Some(serial);
+
+                // Create a buffer and draw the panel into it.
+                let w = if width > 0 { width as i32 } else { 800 };
+                let h = if height > 0 { height as i32 } else { app.config.panel.size as i32 };
+                if let Some(shm) = &app.shm {
+                    if let Some(qh) = &app.qh {
+                        let qh = qh.clone();
+                        match draw::ShmBuffer::new(shm, &qh, w, h) {
+                            Ok(mut buffer) => {
+                                // Paint the OBSIDIAN panel background.
+                                let mut painter = draw::Painter::new(w, h);
+                                let (r, g, b, a) = draw::parse_hex(&app.config.theme.colors.bg_secondary);
+                                painter.fill(r, g, b, a);
+
+                                // Draw a 1px accent line at the top edge.
+                                let (ar, ag, ab, aa) = draw::parse_hex(&app.config.theme.colors.accent_primary);
+                                painter.fill_rect(0, 0, w, 1, ar, ag, ab, aa);
+
+                                // Copy the painted pixels into the buffer.
+                                buffer.data.copy_from_slice(&painter.data);
+                                buffer.attach(&app.surface);
+                                app.shm_buffer = Some(buffer);
+                                tracing::info!(w, h, "panel drawn");
+                            }
+                            Err(e) => {
+                                tracing::error!(error = %e, "failed to create panel buffer");
+                            }
+                        }
+                    }
+                }
             }
             zwlr_layer_surface_v1::Event::Closed => {
                 tracing::info!("layer surface closed; exiting");

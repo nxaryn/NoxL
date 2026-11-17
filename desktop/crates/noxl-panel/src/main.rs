@@ -12,6 +12,7 @@ use anyhow::Context;
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
 
+mod draw;
 mod panel;
 mod plugins;
 
