@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#
+# NoxL live session setup.
+# Runs once at boot (via noxl-live-setup.service) to prepare the live desktop:
+#  - set the OBSIDIAN wallpaper
+#  - ensure the live user exists with a known, non-secret password
+#  - configure networking for the live session
+#
+# The live user password is intentionally simple and PUBLIC (it is printed on
+# screen). It is NOT used on installed systems.
+
+set -euo pipefail
+
+LIVE_USER="${LIVE_USER:-noxl}"
+
+# Create the live user if missing (password is intentionally public for the ISO).
+if ! id "$LIVE_USER" >/dev/null 2>&1; then
+  useradd -m -G wheel,audio,video,storage,network -s /bin/bash "$LIVE_USER"
+  echo "${LIVE_USER}:noxl" | chpasswd
+  echo "[noxl] Created live user '${LIVE_USER}' (public live password)."
+fi
+
+# Ensure the OBSIDIAN wallpaper is present in the live user's config.
+WALL_DIR="/usr/share/noxl/wallpapers"
+LIVE_HOME="/home/${LIVE_USER}"
+if [ -d "$WALL_DIR" ] && [ -d "$LIVE_HOME" ]; then
+  mkdir -p "$LIVE_HOME/.local/share/noxl"
+  cp -f "$WALL_DIR/obsidian-default.png" "$LIVE_HOME/.local/share/noxl/wallpaper.png" 2>/dev/null || true
+  chown -R "$LIVE_USER":"$LIVE_USER" "$LIVE_HOME/.local" 2>/dev/null || true
+fi
+
+# Make sure NetworkManager is up for the live session.
+systemctl enable --now NetworkManager 2>/dev/null || true
+
+echo "[noxl] Live session ready."

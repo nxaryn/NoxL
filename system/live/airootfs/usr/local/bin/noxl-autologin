@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#
+# NoxL live autologin helper.
+# Configures GDM to autologin the live user so the ISO boots straight to a
+# desktop session. This is a LIVE-IMAGE convenience only; the installed system
+# uses normal PAM authentication and never autologins by default.
+
+set -euo pipefail
+
+LIVE_USER="${LIVE_USER:-noxl}"
+
+mkdir -p /etc/gdm
+cat > /etc/gdm/custom.conf <<EOF
+# Managed by NoxL live image. Do not edit on installed systems.
+[daemon]
+AutomaticLoginEnable=True
+AutomaticLogin=${LIVE_USER}
+WaylandEnable=true
+
+[security]
+AllowRoot=false
+EOF
+
+echo "[noxl] GDM autologin configured for user '${LIVE_USER}'."

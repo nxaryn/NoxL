@@ -1,0 +1,95 @@
+# NoxL Live ISO package set.
+# These are real Arch Linux packages, resolved by pacman at build time.
+# Base system
+base
+linux
+linux-firmware
+mkinitcpio
+systemd
+systemd-sysvcompat
+systemd-resolvconf
+
+# Boot
+grub
+efibootmgr
+os-prober
+
+# Filesystem / storage
+btrfs-progs
+dosfstools
+e2fsprogs
+exfat-utils
+ntfs-3g
+parted
+gptfdisk
+util-linux
+cryptsetup
+lvm2
+
+# Networking
+networkmanager
+network-manager-applet
+wpa_supplicant
+wireless_tools
+wpa_actiond
+modemmanager
+bluez
+bluez-utils
+
+# Audio
+pipewire
+pipewire-pulse
+pipewire-alsa
+pipewire-jack
+wireplumber
+
+# Graphics / Wayland stack
+mesa
+vulkan-icd-loader
+wayland
+wayland-protocols
+libinput
+xorg-server
+xorg-xwayland
+xf86-input-libinput
+
+# Input / accessibility
+xorg-xkbcomp
+xkeyboard-config
+
+# Fonts (OBSIDIAN uses Inter + JetBrains Mono)
+ttf-inter
+ttf-jetbrains-mono
+noto-fonts
+
+# Display manager (Phase 2 will replace with NoxL's own; gdm is the bootable default)
+gdm
+
+# Core CLI / installer deps
+git
+curl
+wget
+vim
+nano
+sudo
+openssh
+rsync
+less
+which
+base-devel
+
+# Files / archive
+unzip
+zip
+tar
+gzip
+p7zip
+
+# Qt 6 (desktop toolkit for NoxL apps; Phase 2+)
+qt6-base
+qt6-declarative
+qt6-svg
+
+# NoxL desktop (installed from this repo's package build in Phase 2+).
+# For Phase 1 the live image boots to a working Wayland session via the
+# packages below; NoxL's own compositor lands in Phase 2.

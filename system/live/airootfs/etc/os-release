@@ -1,0 +1,12 @@
+NAME=NoxL
+PRETTY_NAME="NoxL Linux (OBSIDIAN)"
+ID=noxl
+ID_LIKE=arch
+BUILD_ID=rolling
+ANSI_COLOR="0;35"
+HOME_URL="https://github.com/Noxaryn/NoxL"
+DOCUMENTATION_URL="https://github.com/Noxaryn/NoxL/tree/main/docs"
+SUPPORT_URL="https://github.com/Noxaryn/NoxL/discussions"
+BUG_REPORT_URL="https://github.com/Noxaryn/NoxL/issues"
+PRIVACY_POLICY_URL="https://github.com/Noxaryn/NoxL/blob/main/docs/PRIVACY.md"
+LOGO=noxl

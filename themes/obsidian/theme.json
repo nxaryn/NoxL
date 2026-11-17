@@ -1,0 +1,37 @@
+{
+  "name": "OBSIDIAN",
+  "version": 1,
+  "description": "NoxL default theme. Minimalistic, futuristic, elegant. Dark-first with a violet accent.",
+  "color_mode": "dark",
+  "colors": {
+    "bg_primary": "#09090D",
+    "bg_secondary": "#111116",
+    "bg_elevated": "#181820",
+    "accent_primary": "#B44CFF",
+    "accent_secondary": "#7028D9",
+    "accent_soft": "#E0B4FF",
+    "text_primary": "#F2EFF7",
+    "text_secondary": "#96919F",
+    "border": "#292532"
+  },
+  "typography": {
+    "font_sans": "Inter",
+    "font_mono": "JetBrains Mono",
+    "font_size_base": 13,
+    "font_size_small": 11,
+    "font_size_large": 18
+  },
+  "shape": {
+    "radius_panel": 8,
+    "radius_window": 10,
+    "radius_control": 6,
+    "spacing_unit": 4
+  },
+  "effects": {
+    "blur": true,
+    "blur_radius": 24,
+    "shadows": true,
+    "animations": true,
+    "animation_duration_ms": 160
+  }
+}

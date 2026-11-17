@@ -1,0 +1,15 @@
+# NoxL build artifacts
+/build/
+*.iso
+*.img
+*.qcow2
+*.vdi
+
+# archiso work dirs
+/work/
+/out/
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+*.swp

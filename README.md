@@ -1,0 +1,95 @@
+# NoxL
+
+**A custom, independent Linux distribution with its own desktop environment.**
+
+NoxL is built on a stable Linux foundation (Arch Linux base, official Linux kernel,
+systemd, Wayland, PipeWire) and adds an original desktop environment, a complete
+customisation system, and a native application ecosystem under the **OBSIDIAN**
+design language.
+
+> **Status:** Phase 1 (Foundation) — source complete, build/verify pending on a
+> Linux host. See [docs/PHASE1.md](docs/PHASE1.md) for exactly what works, what
+> is unverified, and how to build and boot it.
+
+---
+
+## Design identity
+
+| Token | Value |
+|---|---|
+| Primary background | `#09090D` |
+| Secondary background | `#111116` |
+| Elevated surfaces | `#181820` |
+| Primary accent | `#B44CFF` |
+| Secondary accent | `#7028D9` |
+| Soft highlight | `#E0B4FF` |
+| Primary text | `#F2EFF7` |
+| Secondary text | `#96919F` |
+| Borders | `#292532` |
+
+Philosophy: minimalistic, futuristic, modular, powerful, elegant. No generic
+dashboard aesthetics, no decorative glow, no oversized rounded corners.
+
+---
+
+## Repository layout
+
+```
+NoxL/
+├── system/
+│   ├── live/            # archiso profile -> builds the Live/Install ISO
+│   │   ├── profiledef.sh
+│   │   ├── packages.x86_64
+│   │   ├── pacman.conf
+│   │   ├── airootfs/    # files overlaid into the live root
+│   │   ├── efiboot/     # EFI bootloader entries
+│   │   └── syslinux/    # BIOS bootloader entries
+│   ├── kernel/          # kernel config + build helper (uses upstream Arch kernel)
+│   ├── boot/            # bootloader config (systemd-boot / GRUB)
+│   ├── services/        # systemd units (display manager, noxl-session, etc.)
+│   ├── networking/      # NetworkManager config
+│   ├── security/        # PAM, polkit, firewall defaults
+│   └── hardware/        # firmware/driver guidance
+├── desktop/             # (Phase 2+) compositor, shell, panel, launcher, ...
+├── applications/        # (Phase 4+) native apps
+├── themes/              # OBSIDIAN theme tokens + definitions
+├── installer/           # (Phase 5) graphical installer
+├── scripts/             # build + dev helper scripts
+├── docs/                # architecture, phase status, known issues
+└── README.md
+```
+
+Directories that do not yet contain real content are intentionally omitted until
+the phase that needs them (per the "no empty directories" rule).
+
+---
+
+## Building (on a Linux host)
+
+Requirements: an **Arch Linux** host (or the `archlinux` WSL2 distro / a VM) with
+`archiso`, `git`, and ~15 GB free.
+
+```bash
+git clone <this repo>
+cd NoxL
+sudo ./scripts/build-iso.sh
+# Result: build/noxl-*.iso
+```
+
+Boot test:
+
+```bash
+qemu-system-x86_64 -m 4G -smp 4 -cdrom build/noxl-*.iso -boot d
+```
+
+Full instructions, including how to verify the ISO boots to a systemd + Wayland
+session, are in [docs/PHASE1.md](docs/PHASE1.md).
+
+---
+
+## Legal / upstream
+
+NoxL is an independent distribution. It is not affiliated with or endorsed by
+Arch Linux. It uses upstream Arch Linux packages, the upstream Linux kernel,
+systemd, Wayland (wlroots/Qt), PipeWire, NetworkManager, Mesa, and GRUB/systemd-boot
+under their respective licenses.

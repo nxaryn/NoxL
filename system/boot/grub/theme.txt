@@ -1,0 +1,40 @@
+# NoxL GRUB visual theme (OBSIDIAN).
+# Placed at /boot/grub/themes/obsidian/theme.txt on installed systems.
+
+title-text: ""
+title-font: "Inter Regular 16"
+message-color: "#96919F"
+message-bg-color: "#09090D"
+terminal-box: "terminal_box_*.png"
+terminal-font: "JetBrains Mono Regular 12"
+
++ boot_menu {
+    left = 15%
+    width = 70%
+    top = 25%
+    height = 55%
+    item_color = "#F2EFF7"
+    selected_item_color = "#181820"
+    item_height = 32
+    item_padding = 8
+    item_spacing = 4
+    icon_width = 32
+    icon_height = 32
+    item_font = "Inter Regular 14"
+    selected_item_font = "Inter Medium 14"
+    menu_pixmap_style = "menu_*.png"
+    scrollbar = true
+    scrollbar_width = 8
+    scrollbar_thumb = "scrollbar_thumb_*.png"
+    scrollbar_frame = "scrollbar_frame_*.png"
+}
+
++ label {
+    left = 0
+    top = 88%
+    width = 100%
+    align = "center"
+    color = "#96919F"
+    font = "Inter Regular 11"
+    text = "NoxL Linux (OBSIDIAN)"
+}

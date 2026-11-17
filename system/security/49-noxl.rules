@@ -1,0 +1,25 @@
+# NoxL polkit policy defaults.
+# Installed to /etc/polkit-1/rules.d/49-noxl.rules on the installed system.
+# Grants the desktop user the ability to perform common desktop actions
+# WITHOUT giving unrestricted root. Privilege separation is preserved:
+# the desktop never runs as root; privileged actions go through polkit.
+
+polkit.addRule(function(action, subject) {
+    if (subject.isInGroup("wheel")) {
+        // Members of wheel may use the package manager and mount removable media.
+        if (action.id == "org.archlinux.archlinux.pkexec" ||
+            action.id.indexOf("org.freedesktop.udisks2.") == 0) {
+            return polkit.Result.YES;
+        }
+    }
+    // Suspend/hibernate/power for anyone with an active local session.
+    if (subject.local && subject.active) {
+        if (action.id == "org.freedesktop.login1.suspend" ||
+            action.id == "org.freedesktop.login1.hibernate" ||
+            action.id == "org.freedesktop.login1.power-off" ||
+            action.id == "org.freedesktop.login1.reboot") {
+            return polkit.Result.YES;
+        }
+    }
+    return polkit.Result.NOTFOUND;
+});

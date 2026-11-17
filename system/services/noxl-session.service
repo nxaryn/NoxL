@@ -1,0 +1,17 @@
+[Unit]
+Description=NoxL Desktop Session
+Documentation=https://github.com/Noxaryn/NoxL
+After=systemd-user-sessions.service
+Wants=systemd-user-sessions.service
+
+[Service]
+Type=idle
+# The NoxL compositor (Phase 2). Until then, this starts a Wayland-capable
+# session via the default display server so the live image is usable.
+# Replace ExecStart with /usr/bin/noxl-compositor once Phase 2 lands.
+ExecStart=/usr/bin/gnome-session
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical.target

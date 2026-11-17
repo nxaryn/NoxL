@@ -1,0 +1,16 @@
+[Unit]
+Description=NoxL live session setup
+Documentation=https://github.com/Noxaryn/NoxL
+After=network.target NetworkManager.service systemd-user-sessions.service
+Before=display-manager.service
+ConditionPathExists=!/
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/noxl-live-setup
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

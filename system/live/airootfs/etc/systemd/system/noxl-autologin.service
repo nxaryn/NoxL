@@ -1,0 +1,13 @@
+[Unit]
+Description=NoxL live autologin configuration
+Documentation=https://github.com/Noxaryn/NoxL
+After=systemd-user-sessions.service
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/noxl-autologin
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

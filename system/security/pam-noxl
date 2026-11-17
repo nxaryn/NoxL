@@ -1,0 +1,21 @@
+# NoxL PAM configuration for the display manager / lock screen.
+# Installed to /etc/pam.d/noxl on the installed system.
+# Uses standard Unix authentication (shadow). NEVER hardcodes passwords.
+#
+# This file is referenced by the NoxL display manager and lock screen
+# (Phase 2+). It is intentionally standard so it integrates with the
+# account tools (passwd, useradd, etc.).
+
+#%PAM-1.0
+auth       required   pam_shells.so
+auth       requisite  pam_nologin.so
+auth       include    system-login
+
+account    required   pam_nologin.so
+account    include    system-login
+
+password   include    system-login
+
+session    optional   pam_keyinit.so revoke
+session    include    system-login
+session    optional   pam_gnome_keyring.so auto_start
