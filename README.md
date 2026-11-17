@@ -7,10 +7,10 @@ systemd, Wayland, PipeWire) and adds an original desktop environment, a complete
 customisation system, and a native application ecosystem under the **OBSIDIAN**
 design language.
 
-> **Status:** Phase 2 (Desktop) — source complete, build/verify pending on a
-> Linux host. See [docs/PHASE1.md](docs/PHASE1.md) and
-> [docs/PHASE2.md](docs/PHASE2.md) for exactly what works, what is unverified,
-> and how to build and boot it.
+> **Status:** Phase 3 (Customisation) — source complete and compiling on
+> real Linux. 49 unit tests passing. See [docs/PHASE1.md](docs/PHASE1.md),
+> [docs/PHASE2.md](docs/PHASE2.md), [docs/PHASE3.md](docs/PHASE3.md), and
+> [docs/TESTING.md](docs/TESTING.md) for details.
 
 ---
 
@@ -54,12 +54,16 @@ NoxL/
 ├── desktop/             # NoxL Desktop (Rust / Smithay Wayland compositor)
 │   ├── crates/
 │   │   ├── noxl-compositor/   # Wayland compositor, WM, input, IPC
-│   │   ├── noxl-panel/        # taskbar / panel
-│   │   ├── noxl-launcher/     # application launcher
-│   │   ├── noxl-notifications/# notification centre
+│   │   ├── noxl-panel/        # taskbar / panel (Bottom layer)
+│   │   ├── noxl-launcher/     # application launcher (Top layer)
+│   │   ├── noxl-notifications/# notification centre (Overlay layer)
+│   │   ├── noxl-lockscreen/   # lock screen (Overlay layer, PAM)
+│   │   ├── noxl-settings/     # Control Centre, presets, wallpaper
+│   │   ├── noxl-widgets/      # widget engine (sandboxed)
 │   │   ├── noxl-shell/        # session entry point
 │   │   ├── noxl-config/       # shared config model (OBSIDIAN defaults)
-│   │   └── noxl-ipc/          # control socket protocol
+│   │   ├── noxl-ipc/          # control socket protocol
+│   │   └── noxl-render/       # shared software renderer (wl_shm)
 ├── applications/        # (Phase 4+) native apps
 ├── themes/              # OBSIDIAN theme tokens + definitions
 ├── installer/           # (Phase 5) graphical installer
@@ -90,6 +94,13 @@ Build the NoxL desktop (on a Linux host with Rust + Wayland + D-Bus):
 ```bash
 ./scripts/build-desktop.sh
 # Binaries in desktop/target/release/
+```
+
+Run the test suite (compile + unit tests + lint):
+
+```bash
+./scripts/test-desktop.sh
+# 49 tests passing
 ```
 
 Boot test:
