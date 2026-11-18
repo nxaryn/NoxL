@@ -1,0 +1,29 @@
+[package]
+name = "noxl-archive"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NoxL Archive: ZIP, TAR, GZIP archive manager"
+
+[[bin]]
+name = "noxl-archive"
+path = "src/main.rs"
+
+[dependencies]
+noxl-config.workspace = true
+noxl-ipc.workspace = true
+noxl-render.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+
+wayland-client.workspace = true
+wayland-protocols-wlr.workspace = true
+
+tar.workspace = true
+flate2.workspace = true
+zip.workspace = true
+walkdir.workspace = true
