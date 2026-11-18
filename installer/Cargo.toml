@@ -1,0 +1,31 @@
+[package]
+name = "noxl-installer"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/Noxaryn/NoxL"
+description = "NoxL Installer: graphical installer with disk partitioning, user creation, and bootloader setup"
+
+[[bin]]
+name = "noxl-installer"
+path = "src/main.rs"
+
+[dependencies]
+noxl-config = { path = "../desktop/crates/noxl-config" }
+noxl-ipc = { path = "../desktop/crates/noxl-ipc" }
+noxl-render = { path = "../desktop/crates/noxl-render" }
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+clap = { version = "4", features = ["derive", "env"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+wayland-client = "0.31"
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }
+
+# Disk operations
+gpt = "3"
+nix = { version = "0.27", features = ["fs", "mount", "user"] }
+libc = "0.2"
