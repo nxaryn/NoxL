@@ -10,7 +10,7 @@ use anyhow::{Context, Result};
 
 use wayland_client::{
     globals::{registry_queue_init, GlobalListContents},
-    protocol::{wl_buffer, wl_compositor, wl_output, wl_registry, wl_region, wl_shm, wl_shm_pool, wl_surface},
+    protocol::{wl_buffer, wl_compositor, wl_output, wl_pointer, wl_registry, wl_region, wl_seat, wl_shm, wl_shm_pool, wl_surface},
     Connection, Dispatch, Proxy, QueueHandle,
 };
 
@@ -40,6 +40,14 @@ pub struct Panel {
     pub shm: Option<wl_shm::WlShm>,
     /// Queue handle for creating resources.
     pub qh: Option<QueueHandle<Panel>>,
+    /// The seat (input device).
+    pub seat: Option<wl_seat::WlSeat>,
+    /// The pointer (mouse).
+    pub pointer: Option<wl_pointer::WlPointer>,
+    /// Current pointer position.
+    pub pointer_pos: (i32, i32),
+    /// Pointer button state.
+    pub pointer_pressed: bool,
 }
 
 /// Run the panel.
@@ -62,6 +70,14 @@ pub fn run(config: noxl_config::NoxlConfig) -> Result<()> {
     let _output: wl_output::WlOutput = globals
         .bind(&qh, 1..=4, ())
         .context("wl_output not available")?;
+
+    // Bind the seat for input.
+    let seat: wl_seat::WlSeat = globals
+        .bind(&qh, 1..=9, ())
+        .context("wl_seat not available")?;
+
+    // Get the pointer from the seat.
+    let pointer = seat.get_pointer(&qh, ());
 
     // Create the surface.
     let surface = compositor.create_surface(&qh, ());
@@ -131,6 +147,10 @@ pub fn run(config: noxl_config::NoxlConfig) -> Result<()> {
         shm_buffer: None,
         shm: Some(_shm),
         qh: Some(qh.clone()),
+        seat: Some(seat),
+        pointer: Some(pointer),
+        pointer_pos: (0, 0),
+        pointer_pressed: false,
     };
 
     // Event loop.
@@ -245,6 +265,48 @@ impl Dispatch<wl_buffer::WlBuffer, ()> for Panel {
         _: &Connection,
         _: &QueueHandle<Self>,
     ) {
+    }
+}
+
+impl Dispatch<wl_seat::WlSeat, ()> for Panel {
+    fn event(
+        _: &mut Self,
+        _: &wl_seat::WlSeat,
+        _: wl_seat::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+    }
+}
+
+impl Dispatch<wl_pointer::WlPointer, ()> for Panel {
+    fn event(
+        app: &mut Self,
+        _: &wl_pointer::WlPointer,
+        event: wl_pointer::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+        match event {
+            wl_pointer::Event::Motion { surface_x, surface_y, .. } => {
+                app.pointer_pos = (surface_x as i32, surface_y as i32);
+            }
+            wl_pointer::Event::Button { button, state, .. } => {
+                if button == 0x110 { // BTN_LEFT
+                    app.pointer_pressed = matches!(state, wayland_client::WEnum::Value(wl_pointer::ButtonState::Pressed));
+                    if app.pointer_pressed {
+                        tracing::debug!(x = app.pointer_pos.0, y = app.pointer_pos.1, "panel clicked");
+                        // Plugin click handling would go here.
+                    }
+                }
+            }
+            wl_pointer::Event::Enter { surface_x, surface_y, .. } => {
+                app.pointer_pos = (surface_x as i32, surface_y as i32);
+            }
+            _ => {}
+        }
     }
 }
 

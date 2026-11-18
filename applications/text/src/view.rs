@@ -5,8 +5,8 @@ use anyhow::{Context, Result};
 use wayland_client::{
     globals::{registry_queue_init, GlobalListContents},
     protocol::{
-        wl_buffer, wl_compositor, wl_output, wl_registry, wl_region, wl_shm, wl_shm_pool,
-        wl_surface,
+        wl_buffer, wl_compositor, wl_keyboard, wl_output, wl_registry, wl_region, wl_seat,
+        wl_shm, wl_shm_pool, wl_surface,
     },
     Connection, Dispatch, Proxy, QueueHandle,
 };
@@ -29,6 +29,8 @@ pub struct TextView {
     pub running: bool,
     pub width: i32,
     pub height: i32,
+    pub seat: Option<wl_seat::WlSeat>,
+    pub keyboard: Option<wl_keyboard::WlKeyboard>,
 }
 
 /// Run the text editor view.
@@ -50,6 +52,12 @@ pub fn run(config: noxl_config::NoxlConfig, editor: &mut Editor) -> Result<()> {
     let _output: wl_output::WlOutput = globals
         .bind(&qh, 1..=4, ())
         .context("wl_output not available")?;
+
+    // Bind the seat for keyboard input.
+    let seat: wl_seat::WlSeat = globals
+        .bind(&qh, 1..=9, ())
+        .context("wl_seat not available")?;
+    let keyboard = seat.get_keyboard(&qh, ());
 
     let surface = compositor.create_surface(&qh, ());
 
@@ -81,6 +89,8 @@ pub fn run(config: noxl_config::NoxlConfig, editor: &mut Editor) -> Result<()> {
         running: true,
         width: 800,
         height: 600,
+        seat: Some(seat),
+        keyboard: Some(keyboard),
     };
 
     loop {
@@ -285,6 +295,53 @@ impl Dispatch<wl_buffer::WlBuffer, ()> for TextView {
         _: &Connection,
         _: &QueueHandle<Self>,
     ) {
+    }
+}
+
+impl Dispatch<wl_seat::WlSeat, ()> for TextView {
+    fn event(
+        _: &mut Self,
+        _: &wl_seat::WlSeat,
+        _: wl_seat::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+    }
+}
+
+impl Dispatch<wl_keyboard::WlKeyboard, ()> for TextView {
+    fn event(
+        app: &mut Self,
+        _: &wl_keyboard::WlKeyboard,
+        event: wl_keyboard::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+        if let wl_keyboard::Event::Key { key, state, .. } = event {
+            if matches!(state, wayland_client::WEnum::Value(wl_keyboard::KeyState::Pressed)) {
+                // Map evdev keycodes to characters.
+                // This is a simplified mapping; a full implementation uses xkbcommon.
+                let ch = match key {
+                    16 => Some('q'), 17 => Some('w'), 18 => Some('e'), 19 => Some('r'), 20 => Some('t'),
+                    21 => Some('y'), 22 => Some('u'), 23 => Some('i'), 24 => Some('o'), 25 => Some('p'),
+                    30 => Some('a'), 31 => Some('s'), 32 => Some('d'), 33 => Some('f'), 34 => Some('g'),
+                    35 => Some('h'), 36 => Some('j'), 37 => Some('k'), 38 => Some('l'),
+                    44 => Some('z'), 45 => Some('x'), 46 => Some('c'), 47 => Some('v'), 48 => Some('b'),
+                    49 => Some('n'), 50 => Some('m'),
+                    2 => Some('1'), 3 => Some('2'), 4 => Some('3'), 5 => Some('4'), 6 => Some('5'),
+                    7 => Some('6'), 8 => Some('7'), 9 => Some('8'), 10 => Some('9'), 11 => Some('0'),
+                    57 => Some(' '), 28 => Some('\n'), 14 => Some('\x08'), // backspace
+                    _ => None,
+                };
+                if let Some(c) = ch {
+                    // The editor is borrowed mutably in the event loop;
+                    // we'd need to pass it through. For now, log the key.
+                    tracing::debug!(key, ch = %c, "key pressed");
+                }
+            }
+        }
     }
 }
 
