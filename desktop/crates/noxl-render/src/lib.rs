@@ -7,6 +7,10 @@
 //! primitives. Text rendering is left to the client (which can use a font
 //! rasterizer if needed).
 
+pub mod font;
+
+pub use font::{draw_text, Font};
+
 use std::os::unix::io::AsFd;
 
 use anyhow::{Context, Result};

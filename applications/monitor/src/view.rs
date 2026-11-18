@@ -15,7 +15,7 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
     zwlr_layer_shell_v1, zwlr_layer_surface_v1,
 };
 
-use noxl_render::{Painter, ShmBuffer};
+use noxl_render::{Painter, ShmBuffer, Font, draw_text};
 
 /// The monitor view state.
 pub struct MonitorView {
@@ -149,19 +149,22 @@ fn draw_monitor(view: &mut MonitorView) {
     painter.fill_rect(20, ram_y, w - 40, 20, br, bg, bb, ba);
     painter.fill_rect(20, ram_y, ((w - 40) as f64 * ram_pct / 100.0) as i32, 20, ar, ag, ab, aa);
 
-    // CPU info text (as blocks).
+    // CPU info text (real font rendering).
     let (tr, tg, tb, ta) = noxl_render::parse_hex(&view.config.theme.colors.text_primary);
+    let mut font = Font::load_default().ok();
+    if let Some(ref mut f) = font {
+        f.set_pixel_size(13);
+    }
+
     let cpu_text = format!("CPU: {:.0}%", cpu);
-    for (j, _) in cpu_text.chars().enumerate() {
-        let cx = 20 + (j as i32) * 8;
-        painter.fill_rect(cx, 85, 6, 12, tr, tg, tb, ta);
+    if let Some(ref mut f) = font {
+        draw_text(&mut painter, f, &cpu_text, 20, 85, tr, tg, tb, ta);
     }
 
     // RAM info text.
     let ram_text = format!("RAM: {:.0}% ({:.1}/{:.1} GB)", ram_pct, ram_used as f64 / 1e9, ram_total as f64 / 1e9);
-    for (j, _) in ram_text.chars().enumerate() {
-        let cx = 20 + (j as i32) * 8;
-        painter.fill_rect(cx, 125, 6, 12, tr, tg, tb, ta);
+    if let Some(ref mut f) = font {
+        draw_text(&mut painter, f, &ram_text, 20, 125, tr, tg, tb, ta);
     }
 
     // Uptime.
@@ -169,9 +172,8 @@ fn draw_monitor(view: &mut MonitorView) {
     let hours = uptime / 3600;
     let mins = (uptime % 3600) / 60;
     let uptime_text = format!("Uptime: {}h {}m", hours, mins);
-    for (j, _) in uptime_text.chars().enumerate() {
-        let cx = 20 + (j as i32) * 8;
-        painter.fill_rect(cx, 155, 6, 12, tr, tg, tb, ta);
+    if let Some(ref mut f) = font {
+        draw_text(&mut painter, f, &uptime_text, 20, 155, tr, tg, tb, ta);
     }
 
     // CPU brand.
@@ -179,16 +181,14 @@ fn draw_monitor(view: &mut MonitorView) {
         .map(|c| c.brand().trim())
         .unwrap_or("Unknown");
     let brand_text = format!("CPU: {}", brand);
-    for (j, _) in brand_text.chars().take(60).enumerate() {
-        let cx = 20 + (j as i32) * 8;
-        painter.fill_rect(cx, 185, 6, 12, tr, tg, tb, ta);
+    if let Some(ref mut f) = font {
+        draw_text(&mut painter, f, &brand_text, 20, 185, tr, tg, tb, ta);
     }
 
     // Process count.
     let proc_text = format!("Processes: {}", view.system.processes().len());
-    for (j, _) in proc_text.chars().enumerate() {
-        let cx = 20 + (j as i32) * 8;
-        painter.fill_rect(cx, 215, 6, 12, tr, tg, tb, ta);
+    if let Some(ref mut f) = font {
+        draw_text(&mut painter, f, &proc_text, 20, 215, tr, tg, tb, ta);
     }
 
     let mut buffer = buffer;

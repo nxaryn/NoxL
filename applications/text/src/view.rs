@@ -15,7 +15,7 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
     zwlr_layer_shell_v1, zwlr_layer_surface_v1,
 };
 
-use noxl_render::{Painter, ShmBuffer};
+use noxl_render::{Painter, ShmBuffer, Font, draw_text};
 
 use crate::editor::Editor;
 
@@ -88,7 +88,7 @@ pub fn run(config: noxl_config::NoxlConfig, editor: &mut Editor) -> Result<()> {
             .blocking_dispatch(&mut view)
             .context("Wayland dispatch error")?;
 
-        draw_text(&mut view, editor);
+        draw_text_editor(&mut view, editor);
 
         if !view.running {
             break;
@@ -99,7 +99,7 @@ pub fn run(config: noxl_config::NoxlConfig, editor: &mut Editor) -> Result<()> {
 }
 
 /// Draw the text editor into a buffer and attach it.
-fn draw_text(view: &mut TextView, editor: &Editor) {
+fn draw_text_editor(view: &mut TextView, editor: &Editor) {
     let Some(shm) = &view.shm else { return };
     let Some(qh) = &view.qh else { return };
     let qh = qh.clone();
@@ -151,10 +151,14 @@ fn draw_text(view: &mut TextView, editor: &Editor) {
     // Draw line numbers and content.
     let tab = &editor.tabs[editor.active_tab];
     let line_h = 18;
-    let char_w = 8;
     let start_y = 44;
     let (tr, tg, tb, ta) = noxl_render::parse_hex(&view.config.theme.colors.text_primary);
     let (sr, sg, sb, sa) = noxl_render::parse_hex(&view.config.theme.colors.text_secondary);
+
+    let mut font = Font::load_mono().ok();
+    if let Some(ref mut f) = font {
+        f.set_pixel_size(13);
+    }
 
     for (line_num, line) in tab.content.split('\n').enumerate() {
         let y = start_y + (line_num as i32) * line_h;
@@ -164,23 +168,19 @@ fn draw_text(view: &mut TextView, editor: &Editor) {
 
         // Line number.
         let num_str = format!("{}", line_num + 1);
-        for (j, _) in num_str.chars().enumerate() {
-            let cx = 8 + (j as i32) * 7;
-            painter.fill_rect(cx, y + 2, 5, 12, sr, sg, sb, sa);
+        if let Some(ref mut f) = font {
+            draw_text(&mut painter, f, &num_str, 8, y + 2, sr, sg, sb, sa);
         }
 
-        // Line content (as blocks).
-        for (j, _) in line.chars().take(100).enumerate() {
-            let cx = 40 + (j as i32) * char_w;
-            if cx + char_w > w {
-                break;
-            }
-            painter.fill_rect(cx, y + 2, char_w - 2, 12, tr, tg, tb, ta);
+        // Line content (real font rendering).
+        if let Some(ref mut f) = font {
+            draw_text(&mut painter, f, line, 40, y + 2, tr, tg, tb, ta);
         }
     }
 
     // Draw cursor.
     let (cx_line, cx_col) = tab.cursor;
+    let char_w = 8;
     let cx_px = 40 + (cx_col as i32) * char_w;
     let cy_px = start_y + (cx_line as i32) * line_h;
     painter.fill_rect(cx_px, cy_px + 2, char_w - 2, 12, ar, ag, ab, aa);

@@ -10,7 +10,7 @@ use anyhow::{Context, Result};
 
 use wayland_client::{
     globals::{registry_queue_init, GlobalListContents},
-    protocol::{wl_buffer, wl_compositor, wl_output, wl_registry, wl_region, wl_shm, wl_surface},
+    protocol::{wl_buffer, wl_compositor, wl_output, wl_registry, wl_region, wl_shm, wl_shm_pool, wl_surface},
     Connection, Dispatch, Proxy, QueueHandle,
 };
 
@@ -224,6 +224,30 @@ impl Dispatch<wl_shm::WlShm, ()> for Panel {
     }
 }
 
+impl Dispatch<wl_shm_pool::WlShmPool, ()> for Panel {
+    fn event(
+        _: &mut Self,
+        _: &wl_shm_pool::WlShmPool,
+        _: wl_shm_pool::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+    }
+}
+
+impl Dispatch<wl_buffer::WlBuffer, ()> for Panel {
+    fn event(
+        _: &mut Self,
+        _: &wl_buffer::WlBuffer,
+        _: wl_buffer::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+    }
+}
+
 impl Dispatch<zwlr_layer_shell_v1::ZwlrLayerShellV1, ()> for Panel {
     fn event(
         _: &mut Self,
@@ -267,6 +291,26 @@ impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for Panel {
                                 // Draw a 1px accent line at the top edge.
                                 let (ar, ag, ab, aa) = draw::parse_hex(&app.config.theme.colors.accent_primary);
                                 painter.fill_rect(0, 0, w, 1, ar, ag, ab, aa);
+
+                                // Draw the clock text (real font rendering).
+                                let (tr, tg, tb, ta) = draw::parse_hex(&app.config.theme.colors.text_primary);
+                                let now = chrono::Local::now();
+                                let time_str = now.format("%H:%M").to_string();
+                                if let Ok(mut font) = draw::Font::load_default() {
+                                    font.set_pixel_size(14);
+                                    let text_w = font.measure(&time_str);
+                                    let tx = w - text_w - 16;
+                                    let ty = (h - 14) / 2;
+                                    draw::draw_text(&mut painter, &mut font, &time_str, tx, ty, tr, tg, tb, ta);
+                                }
+
+                                // Draw the app name on the left.
+                                let name_str = "NoxL";
+                                if let Ok(mut font) = draw::Font::load_default() {
+                                    font.set_pixel_size(13);
+                                    let ty = (h - 13) / 2;
+                                    draw::draw_text(&mut painter, &mut font, name_str, 12, ty, ar, ag, ab, aa);
+                                }
 
                                 // Copy the painted pixels into the buffer.
                                 buffer.data.copy_from_slice(&painter.data);

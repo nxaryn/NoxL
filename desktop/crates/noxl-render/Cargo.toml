@@ -10,3 +10,5 @@ description = "NoxL shared software renderer: pixel drawing into wl_shm buffers"
 anyhow.workspace = true
 tracing.workspace = true
 wayland-client = "0.31"
+ab_glyph = "0.2"
+fontconfig = "0.5"

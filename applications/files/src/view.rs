@@ -15,7 +15,7 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
     zwlr_layer_shell_v1, zwlr_layer_surface_v1,
 };
 
-use noxl_render::{Painter, ShmBuffer};
+use noxl_render::{Painter, ShmBuffer, Font, draw_text};
 
 use crate::browser::Browser;
 
@@ -135,6 +135,11 @@ fn draw_files(view: &mut FilesView, browser: &Browser) {
     let (tr, tg, tb, ta) = noxl_render::parse_hex(&view.config.theme.colors.text_primary);
     let (sr, sg, sb, sa) = noxl_render::parse_hex(&view.config.theme.colors.text_secondary);
 
+    let mut font = Font::load_default().ok();
+    if let Some(ref mut f) = font {
+        f.set_pixel_size(13);
+    }
+
     for (i, entry) in browser.entries.iter().enumerate() {
         let y = start_y + (i as i32) * row_h;
         if y + row_h > h {
@@ -151,19 +156,17 @@ fn draw_files(view: &mut FilesView, browser: &Browser) {
         let icon_size = if entry.is_dir { 16 } else { 12 };
         painter.fill_rect(12, y + 6, icon_size, icon_size, ir, ig, ib, ia);
 
-        // File name (as a block — a real implementation uses a font rasterizer).
-        let name_x = 36;
-        for (j, _) in entry.name.chars().take(40).enumerate() {
-            let cx = name_x + (j as i32) * 7;
-            painter.fill_rect(cx, y + 8, 5, 12, tr, tg, tb, ta);
+        // File name (real font rendering).
+        if let Some(ref mut f) = font {
+            draw_text(&mut painter, f, &entry.name, 36, y + 6, tr, tg, tb, ta);
         }
 
-        // Size (right-aligned, as blocks).
+        // Size (right-aligned).
         let size_str = Browser::format_size(entry);
-        let size_x = w - (size_str.len() as i32) * 7 - 20;
-        for (j, _) in size_str.chars().enumerate() {
-            let cx = size_x + (j as i32) * 7;
-            painter.fill_rect(cx, y + 8, 5, 12, sr, sg, sb, sa);
+        if let Some(ref mut f) = font {
+            let size_w = f.measure(&size_str);
+            let size_x = w - size_w - 20;
+            draw_text(&mut painter, f, &size_str, size_x, y + 6, sr, sg, sb, sa);
         }
     }
 
