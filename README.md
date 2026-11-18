@@ -7,9 +7,9 @@ systemd, Wayland, PipeWire) and adds an original desktop environment, a complete
 customisation system, and a native application ecosystem under the **OBSIDIAN**
 design language.
 
-> **Status:** Phase 4 (Applications) — source complete and compiling on
-> real Linux. 49 desktop tests + 7 application binaries. See
-> [docs/PHASE1.md](docs/PHASE1.md) through [docs/PHASE4.md](docs/PHASE4.md)
+> **Status:** Phase 5 (Installation) — source complete and compiling on
+> real Linux. 49 desktop tests + 7 app binaries + installer. See
+> [docs/PHASE1.md](docs/PHASE1.md) through [docs/PHASE5.md](docs/PHASE5.md)
 > and [docs/TESTING.md](docs/TESTING.md) for details.
 
 ---
@@ -73,7 +73,7 @@ NoxL/
 │   ├── archive/         # archive manager
 │   └── software/        # pacman frontend
 ├── themes/              # OBSIDIAN theme tokens + definitions
-├── installer/           # (Phase 5) graphical installer
+├── installer/           # Graphical installer (disk, user, bootloader)
 ├── scripts/             # build + dev helper scripts
 ├── docs/                # architecture, phase status, known issues
 └── README.md
