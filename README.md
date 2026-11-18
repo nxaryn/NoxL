@@ -7,10 +7,10 @@ systemd, Wayland, PipeWire) and adds an original desktop environment, a complete
 customisation system, and a native application ecosystem under the **OBSIDIAN**
 design language.
 
-> **Status:** Phase 3 (Customisation) — source complete and compiling on
-> real Linux. 49 unit tests passing. See [docs/PHASE1.md](docs/PHASE1.md),
-> [docs/PHASE2.md](docs/PHASE2.md), [docs/PHASE3.md](docs/PHASE3.md), and
-> [docs/TESTING.md](docs/TESTING.md) for details.
+> **Status:** Phase 4 (Applications) — source complete and compiling on
+> real Linux. 49 desktop tests + 7 application binaries. See
+> [docs/PHASE1.md](docs/PHASE1.md) through [docs/PHASE4.md](docs/PHASE4.md)
+> and [docs/TESTING.md](docs/TESTING.md) for details.
 
 ---
 
@@ -64,7 +64,14 @@ NoxL/
 │   │   ├── noxl-config/       # shared config model (OBSIDIAN defaults)
 │   │   ├── noxl-ipc/          # control socket protocol
 │   │   └── noxl-render/       # shared software renderer (wl_shm)
-├── applications/        # (Phase 4+) native apps
+├── applications/        # Native applications (Rust, Wayland layer-shell)
+│   ├── terminal/        # PTY terminal emulator
+│   ├── files/           # file manager
+│   ├── text/            # text editor
+│   ├── monitor/         # system monitor
+│   ├── screenshot/      # screenshot utility
+│   ├── archive/         # archive manager
+│   └── software/        # pacman frontend
 ├── themes/              # OBSIDIAN theme tokens + definitions
 ├── installer/           # (Phase 5) graphical installer
 ├── scripts/             # build + dev helper scripts
