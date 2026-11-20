@@ -92,6 +92,18 @@ fn main() -> anyhow::Result<()> {
         .context("failed to add keyboard")?;
 
     // Set up the Wayland socket.
+    // ListeningSocket::bind needs XDG_RUNTIME_DIR; set a fallback if missing
+    // (common when running as root in a live environment).
+    if std::env::var_os("XDG_RUNTIME_DIR").is_none() {
+        let uid = unsafe { libc::getuid() };
+        let fallback = format!("/run/user/{}", uid);
+        if std::path::Path::new(&fallback).exists() {
+            std::env::set_var("XDG_RUNTIME_DIR", &fallback);
+        } else {
+            std::env::set_var("XDG_RUNTIME_DIR", "/tmp");
+        }
+    }
+
     let listener = ListeningSocket::bind("wayland-1")?;
     std::env::set_var("WAYLAND_DISPLAY", "wayland-1");
     let mut clients = Vec::new();
