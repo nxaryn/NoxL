@@ -86,22 +86,9 @@ pub fn setup_wayland_env() {
         let bus_path = std::path::Path::new(&runtime).join("bus");
         if bus_path.exists() {
             std::env::set_var("DBUS_SESSION_BUS_ADDRESS", format!("unix:path={}", bus_path.display()));
-        } else {
-            // No session bus available; launch one.
-            // dbus-launch --sh-syntax is the standard way.
-            if let Ok(output) = std::process::Command::new("dbus-launch")
-                .arg("--sh-syntax")
-                .output()
-            {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                for line in stdout.lines() {
-                    if let Some(addr) = line.strip_prefix("DBUS_SESSION_BUS_ADDRESS=") {
-                        let addr = addr.trim_matches('\'').trim_matches('"');
-                        std::env::set_var("DBUS_SESSION_BUS_ADDRESS", addr);
-                    }
-                }
-            }
         }
+        // If no session bus is available, D-Bus connections will fail gracefully.
+        // The notification centre will log the error and continue without D-Bus.
     }
 }
 

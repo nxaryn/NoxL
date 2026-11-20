@@ -18,11 +18,16 @@ pub async fn run(config: noxl_config::NoxlConfig) -> anyhow::Result<()> {
     // and emits org.freedesktop.Notifications.NotificationClosed and
     //  ActionInvoked signals.)
 
-    let _connection = zbus::Connection::session()
-        .await
-        .context("failed to connect to session bus")?;
-
-    tracing::info!("connected to session bus");
+    let _connection = match zbus::Connection::session().await {
+        Ok(conn) => {
+            tracing::info!("connected to session bus");
+            Some(conn)
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "failed to connect to session bus; notifications will not work via D-Bus");
+            None
+        }
+    };
 
     // Load history.
     let history = history::History::load()?;

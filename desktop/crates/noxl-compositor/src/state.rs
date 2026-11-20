@@ -39,6 +39,7 @@ use crate::{ipc, window};
 // Delegate the Wayland protocol globals to Smithay's implementations.
 smithay::delegate_compositor!(Noxl);
 smithay::delegate_data_device!(Noxl);
+smithay::delegate_output!(Noxl);
 smithay::delegate_seat!(Noxl);
 smithay::delegate_shm!(Noxl);
 smithay::delegate_xdg_shell!(Noxl);
@@ -146,9 +147,9 @@ impl Noxl {
 
     /// Connect an output to the output manager so clients see it.
     pub fn common_output_connect(&mut self, output: &smithay::output::Output) {
-        // In Smithay 0.7 the OutputManagerState is not stored directly;
-        // outputs are advertised via the Output global. We just log it here.
-        tracing::info!(name = %output.name(), "output connected");
+        // Create the wl_output global so clients can bind to it.
+        let _global_id = output.create_global::<Self>(&self.display);
+        tracing::info!(name = %output.name(), "output global created");
     }
 
     /// Focus a workspace by index.
@@ -347,4 +348,8 @@ impl smithay::input::SeatHandler for Noxl {
 
     fn focus_changed(&mut self, _seat: &Seat<Self>, _focused: Option<&WlSurface>) {}
     fn cursor_image(&mut self, _seat: &Seat<Self>, _image: smithay::input::pointer::CursorImageStatus) {}
+}
+
+impl smithay::wayland::output::OutputHandler for Noxl {
+    fn output_bound(&mut self, _output: smithay::output::Output, _wl_output: smithay::reexports::wayland_server::protocol::wl_output::WlOutput) {}
 }
