@@ -36,6 +36,75 @@ pub fn control_socket_path() -> std::path::PathBuf {
     runtime.join("noxl").join("control.sock")
 }
 
+/// Find the Wayland display name.
+///
+/// Checks (in order):
+/// 1. WAYLAND_DISPLAY env var
+/// 2. The noxl-wayland.sock file written by the compositor
+/// 3. Defaults to "wayland-1"
+pub fn wayland_display_name() -> String {
+    if let Ok(display) = std::env::var("WAYLAND_DISPLAY") {
+        return display;
+    }
+
+    // Read the socket file written by the compositor.
+    let runtime = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+    let socket_file = std::path::Path::new(&runtime).join("noxl-wayland.sock");
+    if let Ok(contents) = std::fs::read_to_string(&socket_file) {
+        let name = contents.trim().to_string();
+        if !name.is_empty() {
+            return name;
+        }
+    }
+
+    "wayland-1".into()
+}
+
+/// Set up the Wayland environment for child processes.
+///
+/// Call this at the start of any NoxL client that needs to connect to the
+    // compositor. It sets WAYLAND_DISPLAY and XDG_RUNTIME_DIR if missing.
+pub fn setup_wayland_env() {
+    if std::env::var_os("XDG_RUNTIME_DIR").is_none() {
+        let uid = unsafe { libc::getuid() };
+        let fallback = format!("/run/user/{}", uid);
+        if std::path::Path::new(&fallback).exists() {
+            std::env::set_var("XDG_RUNTIME_DIR", &fallback);
+        } else {
+            std::env::set_var("XDG_RUNTIME_DIR", "/tmp");
+        }
+    }
+
+    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
+        let display = wayland_display_name();
+        std::env::set_var("WAYLAND_DISPLAY", &display);
+    }
+
+    // Set up D-Bus session bus address if missing.
+    if std::env::var_os("DBUS_SESSION_BUS_ADDRESS").is_none() {
+        let runtime = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+        let bus_path = std::path::Path::new(&runtime).join("bus");
+        if bus_path.exists() {
+            std::env::set_var("DBUS_SESSION_BUS_ADDRESS", format!("unix:path={}", bus_path.display()));
+        } else {
+            // No session bus available; launch one.
+            // dbus-launch --sh-syntax is the standard way.
+            if let Ok(output) = std::process::Command::new("dbus-launch")
+                .arg("--sh-syntax")
+                .output()
+            {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                for line in stdout.lines() {
+                    if let Some(addr) = line.strip_prefix("DBUS_SESSION_BUS_ADDRESS=") {
+                        let addr = addr.trim_matches('\'').trim_matches('"');
+                        std::env::set_var("DBUS_SESSION_BUS_ADDRESS", addr);
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// A message sent from a client to the compositor.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]

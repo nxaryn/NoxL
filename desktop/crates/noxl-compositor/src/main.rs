@@ -106,6 +106,14 @@ fn main() -> anyhow::Result<()> {
 
     let listener = ListeningSocket::bind("wayland-1")?;
     std::env::set_var("WAYLAND_DISPLAY", "wayland-1");
+
+    // Write the Wayland socket path to a well-known file so clients started
+    // from other terminals can find it (they won't inherit our env vars).
+    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+    let socket_file = std::path::Path::new(&runtime_dir).join("noxl-wayland.sock");
+    let _ = std::fs::write(&socket_file, "wayland-1");
+    tracing::info!(path = %socket_file.display(), "wrote Wayland socket path");
+
     let mut clients = Vec::new();
 
     let start_time = std::time::Instant::now();

@@ -33,6 +33,9 @@ fn main() -> anyhow::Result<()> {
 
     tracing::info!("NoxL launcher starting");
 
+    // Set up Wayland environment (find the compositor socket).
+    noxl_ipc::setup_wayland_env();
+
     let config = noxl_config::NoxlConfig::load().context("failed to load config")?;
 
     // Load the real application list.
